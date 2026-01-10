@@ -64,7 +64,6 @@ export default function Home() {
     setCard("");
     setMetadata(null);
     setError("");
-    setSearchedTitle(title.trim());
 
     abortControllerRef.current = new AbortController();
 
