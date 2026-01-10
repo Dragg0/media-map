@@ -3,31 +3,36 @@
 import { useState, useRef } from "react";
 import Image from "next/image";
 
-// Simple markdown renderer for bold and bullets
+// Simple markdown renderer for bold, italics, and bullets
 function renderMarkdown(text: string) {
+  // Process inline formatting (bold and italics)
+  const formatInline = (str: string, keyPrefix: string): React.ReactNode[] => {
+    // First handle bold (**text**), then italics (*text*)
+    const parts = str.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+    return parts.map((part, j) => {
+      if (part.startsWith("**") && part.endsWith("**")) {
+        return <strong key={`${keyPrefix}-${j}`}>{part.slice(2, -2)}</strong>;
+      }
+      if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+        return <em key={`${keyPrefix}-${j}`}>{part.slice(1, -1)}</em>;
+      }
+      return part;
+    });
+  };
+
   const lines = text.split("\n");
   return lines.map((line, i) => {
     // Handle bullet points
-    const bulletMatch = line.match(/^- \*(.+?)\*(.*)$/);
-    if (bulletMatch) {
+    if (line.startsWith("- ")) {
       return (
         <div key={i} className="flex gap-2 ml-2">
           <span>-</span>
-          <span><em>{bulletMatch[1]}</em>{bulletMatch[2]}</span>
+          <span>{formatInline(line.slice(2), `${i}`)}</span>
         </div>
       );
     }
 
-    // Handle bold text with **
-    const parts = line.split(/(\*\*[^*]+\*\*)/g);
-    const rendered = parts.map((part, j) => {
-      if (part.startsWith("**") && part.endsWith("**")) {
-        return <strong key={j}>{part.slice(2, -2)}</strong>;
-      }
-      return part;
-    });
-
-    return <div key={i}>{rendered}</div>;
+    return <div key={i}>{formatInline(line, `${i}`)}</div>;
   });
 }
 
@@ -41,30 +46,11 @@ interface MediaMetadata {
 
 export default function Home() {
   const [title, setTitle] = useState("");
-  const [searchedTitle, setSearchedTitle] = useState("");
   const [card, setCard] = useState("");
   const [metadata, setMetadata] = useState<MediaMetadata | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const abortControllerRef = useRef<AbortController | null>(null);
-
-  const handleSave = () => {
-    if (!card || !searchedTitle) return;
-
-    const displayTitle = metadata?.title || searchedTitle;
-    const filename = displayTitle
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
-
-    const blob = new Blob([`# ${displayTitle}\n\n${card}`], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${filename}.md`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -223,14 +209,6 @@ export default function Home() {
                 </div>
               )}
             </div>
-            {!isLoading && card && (
-              <button
-                onClick={handleSave}
-                className="mt-4 rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
-              >
-                Save card
-              </button>
-            )}
           </article>
         )}
 
