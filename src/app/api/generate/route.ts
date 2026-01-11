@@ -121,41 +121,41 @@ export async function POST(request: Request) {
       ? `Here is information about the title:\n\n${tmdbContext}\n\nBased on this information and your knowledge, create an emotional calibration card for "${mediaInfo?.title || title}".`
       : `Create an emotional calibration card for "${title}".`;
 
-    // Use forced provider or try Claude first, fall back to Gemini
-    let provider = forceProvider || "claude";
+    // Use forced provider or try Gemini first (faster), fall back to Claude
+    let provider = forceProvider || "gemini";
     let firstChunk = "";
     let iterator: AsyncIterator<string>;
 
-    if (forceProvider === "gemini") {
-      try {
-        const stream = await generateWithGemini(userMessage);
-        const result = await getFirstChunk(stream);
-        firstChunk = result.firstChunk;
-        iterator = result.iterator;
-      } catch (geminiError) {
-        console.error("Gemini failed:", geminiError);
-        return new Response(
-          JSON.stringify({ error: "Gemini failed. Please try again." }),
-          { status: 503, headers: { "Content-Type": "application/json" } }
-        );
-      }
-    } else {
+    if (forceProvider === "claude") {
       try {
         const stream = await generateWithClaude(userMessage);
         const result = await getFirstChunk(stream);
         firstChunk = result.firstChunk;
         iterator = result.iterator;
       } catch (claudeError) {
-        console.error("Claude failed or timed out, trying Gemini:", claudeError);
-        provider = "gemini";
+        console.error("Claude failed:", claudeError);
+        return new Response(
+          JSON.stringify({ error: "Claude failed. Please try again." }),
+          { status: 503, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    } else {
+      try {
+        const stream = await generateWithGemini(userMessage);
+        const result = await getFirstChunk(stream);
+        firstChunk = result.firstChunk;
+        iterator = result.iterator;
+      } catch (geminiError) {
+        console.error("Gemini failed or timed out, trying Claude:", geminiError);
+        provider = "claude";
 
         try {
-          const stream = await generateWithGemini(userMessage);
+          const stream = await generateWithClaude(userMessage);
           const result = await getFirstChunk(stream);
           firstChunk = result.firstChunk;
           iterator = result.iterator;
-        } catch (geminiError) {
-          console.error("Gemini also failed:", geminiError);
+        } catch (claudeError) {
+          console.error("Claude also failed:", claudeError);
           return new Response(
             JSON.stringify({ error: "All AI providers failed. Please try again." }),
             { status: 503, headers: { "Content-Type": "application/json" } }

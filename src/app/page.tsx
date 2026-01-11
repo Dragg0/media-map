@@ -141,12 +141,12 @@ export default function Home() {
       // Handle comparison bullets: "- Title → description" or "- *Title* → description"
       if (line.startsWith("- ")) {
         const content = line.slice(2);
-        const arrowMatch = content.match(/^\*?(.+?)\*?\s*→\s*(.*)$/);
+        const arrowMatch = content.match(/^(.+?)\s*→\s*(.*)$/);
 
         if (arrowMatch) {
           const [, compTitle, description] = arrowMatch;
-          // Strip any remaining asterisks from title
-          const cleanTitle = compTitle.trim().replace(/^\*|\*$/g, '');
+          // Strip ALL asterisks from title (handles *Title*, Title*, *Title, etc.)
+          const cleanTitle = compTitle.trim().replace(/\*/g, '');
           return (
             <div key={i} className="flex gap-2 ml-2">
               <span>-</span>
@@ -176,7 +176,7 @@ export default function Home() {
 
   const handleSubmit = (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault();
-    const forceProvider = (e as React.MouseEvent).shiftKey ? "gemini" : undefined;
+    const forceProvider = (e as React.MouseEvent).shiftKey ? "claude" : undefined;
     searchTitle(title, forceProvider);
   };
 
@@ -207,7 +207,7 @@ export default function Home() {
               disabled={isLoading || !title.trim()}
               onClick={handleSubmit}
               className="rounded-lg bg-zinc-900 px-6 py-3 font-medium text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-              title="Shift+Click to use Gemini"
+              title="Shift+Click to use Claude"
             >
               {isLoading ? "..." : "Go"}
             </button>
