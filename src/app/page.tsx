@@ -114,18 +114,24 @@ export default function Home() {
         }
         if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
           const innerText = part.slice(1, -1);
-          // Check if this is a calibration sentence (not a title to link)
-          const isCalibrationSentence = innerText.toLowerCase().startsWith("if ") &&
-            innerText.includes("felt") &&
-            innerText.toLowerCase().includes("may feel");
-
-          if (isCalibrationSentence) {
-            return <em key={`${keyPrefix}-${j}`} className="block mt-3">{innerText}</em>;
-          }
           return <TitleLink key={`${keyPrefix}-${j}`} title={innerText} keyId={`${keyPrefix}-${j}`} />;
         }
         return part;
       });
+    };
+
+    // Check if line is a calibration sentence: "If [Title] felt [X], this may feel [Y]"
+    const renderCalibrationSentence = (line: string, key: number) => {
+      const match = line.match(/^If (.+?) felt (.+?), this may feel (.+)$/i);
+      if (match) {
+        const [, titlePart, feltPart, mayFeelPart] = match;
+        return (
+          <div key={key} className="mt-4 italic text-zinc-600 dark:text-zinc-400">
+            If <TitleLink title={titlePart} keyId={`${key}-cal`} /> felt {feltPart}, this may feel {mayFeelPart}
+          </div>
+        );
+      }
+      return null;
     };
 
     const lines = text.split("\n");
@@ -155,6 +161,11 @@ export default function Home() {
           </div>
         );
       }
+
+      // Check for calibration sentence
+      const calibration = renderCalibrationSentence(line, i);
+      if (calibration) return calibration;
+
       return <div key={i}>{formatInline(line, `${i}`)}</div>;
     });
   }, [searchTitle]);

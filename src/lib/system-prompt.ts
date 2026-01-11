@@ -26,9 +26,9 @@ The specific emotional or psychological weight. Be precise without spoilers. If 
 3-4 comparisons using this format:
 - [Show title] → One sentence explaining the emotional difference
 
-End with a calibration sentence after a blank line, wrapped in italics:
+End with a calibration sentence after a blank line:
 
-*If [X] felt [Y], this may feel [Z].*
+If [X] felt [Y], this may feel [Z].
 
 Choose comparisons that are:
 - Well-known enough to be useful reference points
