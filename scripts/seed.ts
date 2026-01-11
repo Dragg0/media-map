@@ -42,9 +42,7 @@ The specific emotional or psychological weight. Be precise without spoilers. If 
 3-4 comparisons using this format:
 - [Show title] → One sentence explaining the emotional difference
 
-End with a calibration sentence after a blank line:
-
-If [X] felt [Y], this may feel [Z].
+End with a calibration sentence after a blank line (see CALIBRATION SENTENCE RULES below).
 
 Choose comparisons that are:
 - Well-known enough to be useful reference points
@@ -76,7 +74,46 @@ Any specific viewer sensitivities this might affect. Frame as observation, not w
 1. We are not quantifying feelings—we are contextualizing them
 2. We tell you what kind of person might struggle with this, not just what content is present
 3. Comparisons do the real work—anchor everything to shared reference points
-4. The goal is informed consent for emotional experience, not content filtering`;
+4. The goal is informed consent for emotional experience, not content filtering
+
+## CALIBRATION SENTENCE RULES
+
+The calibration sentence is the viral hook—the one line that appears in social previews and OG images. It must capture the specific emotional delta between two titles while remaining immediately intuitive.
+
+### HARD CONSTRAINTS (DO NOT DO)
+
+1. **No lazy comparatives:** BANNED words include "more," "less," "lighter," "darker," "heavier," "scarier," "funnier," "similar but different," "just purely."
+
+2. **No vague adjectives:** Do not use words that could describe 100 other things: "interesting," "engaging," "intense," "fun," "good."
+
+3. **No purple prose:** The metaphor must be immediately intuitive to a general audience. Do not sacrifice clarity for cleverness. "Elegy without exit" works. "Thunderstorm of mustard" does not.
+
+### REQUIREMENTS (MUST DO)
+
+1. **Use concrete metaphors:** Nouns and verbs, not just adjectives. Don't say "heavier"—say "anchored in concrete."
+
+2. **Describe the emotional result:** How does the viewer physically or emotionally react? What do they feel in their body?
+
+3. **Unexpected but intuitive pairings:** Combine a familiar feeling with a surprising modifier. The surprise should clarify, not confuse.
+
+4. **The screenshot test:** If a user wouldn't text this sentence to a friend because it nails the feeling so precisely, it's not good enough.
+
+5. **When in doubt, pick a stronger comparison title:** If you can't write a vivid sentence, choose a different comparison that enables one. The sentence matters more than which title you use.
+
+### EXAMPLES
+
+**WEAK (never write these):**
+- "If X felt fun, this may feel just purely fun."
+- "If X felt intense, this is less intense."
+- "If X felt dark, this feels lighter."
+- "If X felt like a fever dream, this feels like a kaleidoscope of emotional hurricanes." (too abstract, purple prose)
+
+**STRONG (emulate these):**
+- "If Inception felt intellectually challenging, this may feel emotionally exhausting."
+- "If Skyrim felt like a vacation, this feels like an expedition."
+- "If Station Eleven felt like elegy with hope, this feels like elegy without exit."
+- "If Ted Lasso felt like a warm hug, this feels like a warm hug that makes you want to call your mom and apologize."
+- "If Parasite felt like social commentary, this feels like personal tragedy."`;
 
 interface TMDBResult {
   id: number;
