@@ -9,6 +9,23 @@ const gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 const STREAM_TIMEOUT_MS = 8000; // 8 seconds between chunks before timeout
 
+// Helper to get first chunk with timeout (proves stream is working)
+async function getFirstChunk(
+  stream: AsyncIterable<string>
+): Promise<{ firstChunk: string; iterator: AsyncIterator<string> }> {
+  const iterator = stream[Symbol.asyncIterator]();
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error("Stream timeout")), STREAM_TIMEOUT_MS);
+  });
+
+  const result = await Promise.race([iterator.next(), timeoutPromise]);
+  if (result.done) {
+    return { firstChunk: "", iterator };
+  }
+  return { firstChunk: result.value, iterator };
+}
+
 // Generate with Claude (primary)
 async function generateWithClaude(userMessage: string): Promise<AsyncIterable<string>> {
   const stream = anthropic.messages.stream({
@@ -103,23 +120,6 @@ export async function POST(request: Request) {
     const userMessage = tmdbContext
       ? `Here is information about the title:\n\n${tmdbContext}\n\nBased on this information and your knowledge, create an emotional calibration card for "${mediaInfo?.title || title}".`
       : `Create an emotional calibration card for "${title}".`;
-
-    // Helper to get first chunk with timeout (proves stream is working)
-    async function getFirstChunk(
-      stream: AsyncIterable<string>
-    ): Promise<{ firstChunk: string; iterator: AsyncIterator<string> }> {
-      const iterator = stream[Symbol.asyncIterator]();
-
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error("Stream timeout")), STREAM_TIMEOUT_MS);
-      });
-
-      const result = await Promise.race([iterator.next(), timeoutPromise]);
-      if (result.done) {
-        return { firstChunk: "", iterator };
-      }
-      return { firstChunk: result.value, iterator };
-    }
 
     // Use forced provider or try Claude first, fall back to Gemini
     let provider = forceProvider || "claude";
