@@ -42,7 +42,9 @@ export async function saveCard(card: {
   cardContent: string;
   provider: string;
 }): Promise<void> {
-  const { error } = await supabase.from("cards").insert({
+  console.log("Attempting to save card:", { tmdbId: card.tmdbId, title: card.title, provider: card.provider });
+
+  const { error } = await supabase.from("cards").upsert({
     tmdb_id: card.tmdbId,
     title: card.title,
     media_type: card.mediaType,
@@ -51,9 +53,12 @@ export async function saveCard(card: {
     genres: card.genres,
     card_content: card.cardContent,
     provider: card.provider,
-  });
+  }, { onConflict: 'tmdb_id' });
 
   if (error) {
     console.error("Failed to save card:", error);
+    throw new Error(`Supabase save failed: ${error.message}`);
   }
+
+  console.log("Card saved successfully:", card.title);
 }
