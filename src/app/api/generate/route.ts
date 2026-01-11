@@ -48,7 +48,7 @@ async function generateWithGemini(userMessage: string): Promise<AsyncIterable<st
 
 export async function POST(request: Request) {
   try {
-    const { title } = await request.json();
+    const { title, forceProvider } = await request.json();
 
     if (!title || typeof title !== "string") {
       return new Response(JSON.stringify({ error: "Title is required" }), {
@@ -102,24 +102,36 @@ export async function POST(request: Request) {
       ? `Here is information about the title:\n\n${tmdbContext}\n\nBased on this information and your knowledge, create an emotional calibration card for "${mediaInfo?.title || title}".`
       : `Create an emotional calibration card for "${title}".`;
 
-    // Try Claude first, fall back to Gemini
+    // Use forced provider or try Claude first, fall back to Gemini
     let textStream: AsyncIterable<string>;
-    let provider = "claude";
+    let provider = forceProvider || "claude";
 
-    try {
-      textStream = await generateWithClaude(userMessage);
-    } catch (claudeError) {
-      console.error("Claude failed, trying Gemini:", claudeError);
-      provider = "gemini";
-
+    if (forceProvider === "gemini") {
       try {
         textStream = await generateWithGemini(userMessage);
       } catch (geminiError) {
-        console.error("Gemini also failed:", geminiError);
+        console.error("Gemini failed:", geminiError);
         return new Response(
-          JSON.stringify({ error: "All AI providers failed. Please try again." }),
+          JSON.stringify({ error: "Gemini failed. Please try again." }),
           { status: 503, headers: { "Content-Type": "application/json" } }
         );
+      }
+    } else {
+      try {
+        textStream = await generateWithClaude(userMessage);
+      } catch (claudeError) {
+        console.error("Claude failed, trying Gemini:", claudeError);
+        provider = "gemini";
+
+        try {
+          textStream = await generateWithGemini(userMessage);
+        } catch (geminiError) {
+          console.error("Gemini also failed:", geminiError);
+          return new Response(
+            JSON.stringify({ error: "All AI providers failed. Please try again." }),
+            { status: 503, headers: { "Content-Type": "application/json" } }
+          );
+        }
       }
     }
 

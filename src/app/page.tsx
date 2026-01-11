@@ -20,7 +20,7 @@ export default function Home() {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Search for a title (used by form and clickable links)
-  const searchTitle = useCallback(async (searchQuery: string) => {
+  const searchTitle = useCallback(async (searchQuery: string, forceProvider?: string) => {
     if (!searchQuery.trim() || isLoading) return;
 
     if (abortControllerRef.current) {
@@ -39,7 +39,7 @@ export default function Home() {
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: searchQuery.trim() }),
+        body: JSON.stringify({ title: searchQuery.trim(), forceProvider }),
         signal: abortControllerRef.current.signal,
       });
 
@@ -174,9 +174,10 @@ export default function Home() {
     });
   }, [searchTitle]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault();
-    searchTitle(title);
+    const forceProvider = (e as React.MouseEvent).shiftKey ? "gemini" : undefined;
+    searchTitle(title, forceProvider);
   };
 
   return (
@@ -204,7 +205,9 @@ export default function Home() {
             <button
               type="submit"
               disabled={isLoading || !title.trim()}
+              onClick={handleSubmit}
               className="rounded-lg bg-zinc-900 px-6 py-3 font-medium text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+              title="Shift+Click to use Gemini"
             >
               {isLoading ? "..." : "Go"}
             </button>
