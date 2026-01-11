@@ -113,8 +113,16 @@ export default function Home() {
           return <strong key={`${keyPrefix}-${j}`}>{part.slice(2, -2)}</strong>;
         }
         if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
-          const titleText = part.slice(1, -1);
-          return <TitleLink key={`${keyPrefix}-${j}`} title={titleText} keyId={`${keyPrefix}-${j}`} />;
+          const innerText = part.slice(1, -1);
+          // Check if this is a calibration sentence (not a title to link)
+          const isCalibrationSentence = innerText.toLowerCase().startsWith("if ") &&
+            innerText.includes("felt") &&
+            innerText.toLowerCase().includes("may feel");
+
+          if (isCalibrationSentence) {
+            return <em key={`${keyPrefix}-${j}`} className="block mt-3">{innerText}</em>;
+          }
+          return <TitleLink key={`${keyPrefix}-${j}`} title={innerText} keyId={`${keyPrefix}-${j}`} />;
         }
         return part;
       });
