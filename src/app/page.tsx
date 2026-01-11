@@ -184,7 +184,7 @@ export default function Home() {
     // Check if line is a calibration sentence: "If [Title] felt [X], this feels/may feel [Y]"
     const renderCalibrationSentence = (line: string, key: number) => {
       // Strip outer asterisks and whitespace from the entire line first
-      let cleanLine = line.trim().replace(/^\*+|\*+$/g, '').trim();
+      const cleanLine = line.trim().replace(/^\*+|\*+$/g, '').trim();
 
       // Match calibration pattern - handle both "this feels" and "this may feel"
       // Also handle asterisks around title with or without spaces
