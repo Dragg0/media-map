@@ -122,12 +122,14 @@ export default function Home() {
 
     // Check if line is a calibration sentence: "If [Title] felt [X], this may feel [Y]"
     const renderCalibrationSentence = (line: string, key: number) => {
-      const match = line.match(/^If (.+?) felt (.+?), this may feel (.+)$/i);
+      const match = line.match(/^If \*?(.+?)\*? felt (.+?), this may feel (.+)$/i);
       if (match) {
         const [, titlePart, feltPart, mayFeelPart] = match;
+        // Strip any remaining asterisks from title
+        const cleanTitle = titlePart.replace(/^\*|\*$/g, '');
         return (
           <div key={key} className="mt-4 italic text-zinc-600 dark:text-zinc-400">
-            If <TitleLink title={titlePart} keyId={`${key}-cal`} /> felt {feltPart}, this may feel {mayFeelPart}
+            If <TitleLink title={cleanTitle} keyId={`${key}-cal`} /> felt {feltPart}, this may feel {mayFeelPart}
           </div>
         );
       }
