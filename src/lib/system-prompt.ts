@@ -84,6 +84,11 @@ The calibration sentence is the viral hook—the one line that appears in social
 
 5. **When in doubt, pick a stronger comparison title:** If you can't write a vivid sentence, choose a different comparison that enables one. The sentence matters more than which title you use.
 
+6. **The Z clause must do at least one of these:**
+   - Invoke a physical sensation (how your body feels during or after)
+   - Imply a post-watch behavior (what you'll want to do afterward)
+   - Create emotional aftertaste (what lingers, not what happens in-scene)
+
 ### EXAMPLES
 
 **WEAK (never write these):**
@@ -93,8 +98,9 @@ The calibration sentence is the viral hook—the one line that appears in social
 - "If X felt like a fever dream, this feels like a kaleidoscope of emotional hurricanes." (too abstract, purple prose)
 
 **STRONG (emulate these):**
-- "If Inception felt intellectually challenging, this may feel emotionally exhausting."
+- "If Inception felt intellectually challenging, this may feel emotionally exhausting." → physical sensation
 - "If Skyrim felt like a vacation, this feels like an expedition."
-- "If Station Eleven felt like elegy with hope, this feels like elegy without exit."
-- "If Ted Lasso felt like a warm hug, this feels like a warm hug that makes you want to call your mom and apologize."
-- "If Parasite felt like social commentary, this feels like personal tragedy."`;
+- "If Station Eleven felt like elegy with hope, this feels like elegy without exit." → emotional aftertaste
+- "If Ted Lasso felt like a warm hug, this feels like a warm hug that makes you want to call your mom and apologize." → post-watch behavior
+- "If Parasite felt like social commentary, this feels like personal tragedy."
+- "If Hereditary felt like dread in the walls, this feels like realizing the walls were listening." → physical sensation + escalation`;
