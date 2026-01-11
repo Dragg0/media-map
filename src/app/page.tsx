@@ -138,18 +138,20 @@ export default function Home() {
 
     const lines = text.split("\n");
     return lines.map((line, i) => {
-      // Handle comparison bullets: "- Title → description"
+      // Handle comparison bullets: "- Title → description" or "- *Title* → description"
       if (line.startsWith("- ")) {
         const content = line.slice(2);
-        const arrowMatch = content.match(/^(.+?)\s*→\s*(.*)$/);
+        const arrowMatch = content.match(/^\*?(.+?)\*?\s*→\s*(.*)$/);
 
         if (arrowMatch) {
           const [, compTitle, description] = arrowMatch;
+          // Strip any remaining asterisks from title
+          const cleanTitle = compTitle.trim().replace(/^\*|\*$/g, '');
           return (
             <div key={i} className="flex gap-2 ml-2">
               <span>-</span>
               <span>
-                <TitleLink title={compTitle.trim()} keyId={`${i}-title`} />
+                <TitleLink title={cleanTitle} keyId={`${i}-title`} />
                 <span> → {description}</span>
               </span>
             </div>
