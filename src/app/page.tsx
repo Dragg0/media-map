@@ -1,40 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import Image from "next/image";
-
-// Simple markdown renderer for bold, italics, and bullets
-function renderMarkdown(text: string) {
-  // Process inline formatting (bold and italics)
-  const formatInline = (str: string, keyPrefix: string): React.ReactNode[] => {
-    // First handle bold (**text**), then italics (*text*)
-    const parts = str.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
-    return parts.map((part, j) => {
-      if (part.startsWith("**") && part.endsWith("**")) {
-        return <strong key={`${keyPrefix}-${j}`}>{part.slice(2, -2)}</strong>;
-      }
-      if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
-        return <em key={`${keyPrefix}-${j}`}>{part.slice(1, -1)}</em>;
-      }
-      return part;
-    });
-  };
-
-  const lines = text.split("\n");
-  return lines.map((line, i) => {
-    // Handle bullet points
-    if (line.startsWith("- ")) {
-      return (
-        <div key={i} className="flex gap-2 ml-2">
-          <span>-</span>
-          <span>{formatInline(line.slice(2), `${i}`)}</span>
-        </div>
-      );
-    }
-
-    return <div key={i}>{formatInline(line, `${i}`)}</div>;
-  });
-}
 
 interface MediaMetadata {
   title: string;
@@ -52,14 +19,15 @@ export default function Home() {
   const [error, setError] = useState("");
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim() || isLoading) return;
+  // Search for a title (used by form and clickable links)
+  const searchTitle = useCallback(async (searchQuery: string) => {
+    if (!searchQuery.trim() || isLoading) return;
 
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
 
+    setTitle(searchQuery);
     setIsLoading(true);
     setCard("");
     setMetadata(null);
@@ -71,7 +39,7 @@ export default function Home() {
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: title.trim() }),
+        body: JSON.stringify({ title: searchQuery.trim() }),
         signal: abortControllerRef.current.signal,
       });
 
@@ -123,6 +91,49 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
+  }, [isLoading]);
+
+  // Markdown renderer with clickable title links
+  const renderMarkdown = useCallback((text: string) => {
+    const formatInline = (str: string, keyPrefix: string): React.ReactNode[] => {
+      const parts = str.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+      return parts.map((part, j) => {
+        if (part.startsWith("**") && part.endsWith("**")) {
+          return <strong key={`${keyPrefix}-${j}`}>{part.slice(2, -2)}</strong>;
+        }
+        if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
+          const titleText = part.slice(1, -1);
+          return (
+            <button
+              key={`${keyPrefix}-${j}`}
+              onClick={() => searchTitle(titleText)}
+              className="italic text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 hover:underline cursor-pointer bg-transparent border-none p-0 font-inherit"
+            >
+              {titleText}
+            </button>
+          );
+        }
+        return part;
+      });
+    };
+
+    const lines = text.split("\n");
+    return lines.map((line, i) => {
+      if (line.startsWith("- ")) {
+        return (
+          <div key={i} className="flex gap-2 ml-2">
+            <span>-</span>
+            <span>{formatInline(line.slice(2), `${i}`)}</span>
+          </div>
+        );
+      }
+      return <div key={i}>{formatInline(line, `${i}`)}</div>;
+    });
+  }, [searchTitle]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    searchTitle(title);
   };
 
   return (
