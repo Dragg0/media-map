@@ -54,6 +54,16 @@ export interface MediaInfo {
   topCast?: string[];
 }
 
+// Lightweight preview for disambiguation UI
+export interface MediaPreview {
+  id: number;
+  title: string;
+  year: string;
+  posterUrl: string | null;
+  mediaType: "movie" | "tv";
+  overview: string;
+}
+
 async function tmdbFetch<T>(endpoint: string): Promise<T> {
   const token = process.env.TMDB_API_TOKEN;
   if (!token) {
@@ -72,6 +82,74 @@ async function tmdbFetch<T>(endpoint: string): Promise<T> {
   }
 
   return response.json();
+}
+
+// Search and return multiple results for disambiguation
+export async function searchMediaMultiple(query: string, limit: number = 5): Promise<MediaPreview[]> {
+  const encoded = encodeURIComponent(query);
+  const searchResponse = await tmdbFetch<TMDBSearchResponse>(
+    `/search/multi?query=${encoded}&include_adult=false&language=en-US&page=1`
+  );
+
+  const results = searchResponse.results
+    .filter((r) => r.media_type === "movie" || r.media_type === "tv")
+    .slice(0, limit);
+
+  return results.map((r) => {
+    const title = r.title || r.name || query;
+    const releaseDate = r.release_date || r.first_air_date;
+    const year = releaseDate ? releaseDate.split("-")[0] : "Unknown";
+
+    return {
+      id: r.id,
+      title,
+      year,
+      posterUrl: r.poster_path
+        ? `https://image.tmdb.org/t/p/w200${r.poster_path}`
+        : null,
+      mediaType: r.media_type,
+      overview: r.overview?.slice(0, 150) + (r.overview?.length > 150 ? "..." : "") || "",
+    };
+  });
+}
+
+// Get full details for a specific media by ID
+export async function getMediaById(id: number, mediaType: "movie" | "tv"): Promise<MediaInfo | null> {
+  const detailsEndpoint =
+    mediaType === "movie"
+      ? `/movie/${id}?append_to_response=credits`
+      : `/tv/${id}?append_to_response=credits`;
+
+  const details = await tmdbFetch<TMDBDetails>(detailsEndpoint);
+
+  const title = details.title || details.name || "Unknown";
+  const releaseDate = details.release_date || details.first_air_date;
+  const year = releaseDate ? releaseDate.split("-")[0] : "Unknown";
+
+  const director = details.credits?.crew?.find(
+    (c) => c.job === "Director"
+  )?.name;
+
+  const topCast = details.credits?.cast?.slice(0, 5).map((c) => c.name);
+
+  return {
+    id: details.id,
+    title,
+    overview: details.overview,
+    posterUrl: details.poster_path
+      ? `https://image.tmdb.org/t/p/w500${details.poster_path}`
+      : null,
+    year,
+    mediaType,
+    genres: details.genres.map((g) => g.name),
+    rating: details.vote_average,
+    tagline: details.tagline,
+    status: details.status,
+    seasons: details.number_of_seasons,
+    creators: details.created_by?.map((c) => c.name),
+    director,
+    topCast,
+  };
 }
 
 export async function searchMedia(query: string): Promise<MediaInfo | null> {

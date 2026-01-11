@@ -11,27 +11,38 @@ interface MediaMetadata {
   genres: string[];
 }
 
+interface SearchResult {
+  id: number;
+  title: string;
+  year: string;
+  posterUrl: string | null;
+  mediaType: "movie" | "tv";
+  overview: string;
+  isCached: boolean;
+}
+
 export default function Home() {
   const [title, setTitle] = useState("");
   const [card, setCard] = useState("");
   const [metadata, setMetadata] = useState<MediaMetadata | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const [forceProviderRef, setForceProviderRef] = useState<string | undefined>();
 
-  // Search for a title (used by form and clickable links)
-  const searchTitle = useCallback(async (searchQuery: string, forceProvider?: string) => {
-    if (!searchQuery.trim() || isLoading) return;
-
+  // Generate card for a specific media (by ID or title)
+  const generateCard = useCallback(async (params: { title?: string; tmdbId?: number; mediaType?: "movie" | "tv"; forceProvider?: string }) => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
 
-    setTitle(searchQuery);
     setIsLoading(true);
     setCard("");
     setMetadata(null);
     setError("");
+    setSearchResults([]);
 
     abortControllerRef.current = new AbortController();
 
@@ -39,7 +50,7 @@ export default function Home() {
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: searchQuery.trim(), forceProvider }),
+        body: JSON.stringify(params),
         signal: abortControllerRef.current.signal,
       });
 
@@ -91,7 +102,57 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading]);
+  }, []);
+
+  // Search for a title - shows disambiguation if multiple results
+  const searchTitle = useCallback(async (searchQuery: string, forceProvider?: string) => {
+    if (!searchQuery.trim() || isLoading || isSearching) return;
+
+    setTitle(searchQuery);
+    setIsSearching(true);
+    setCard("");
+    setMetadata(null);
+    setError("");
+    setSearchResults([]);
+    setForceProviderRef(forceProvider);
+
+    try {
+      const response = await fetch("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: searchQuery.trim() }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Search failed");
+      }
+
+      const { results } = await response.json();
+
+      if (results.length === 0) {
+        // No results, try generating anyway with just the title
+        setIsSearching(false);
+        generateCard({ title: searchQuery.trim(), forceProvider });
+      } else if (results.length === 1) {
+        // Only one result, generate directly
+        setIsSearching(false);
+        generateCard({ tmdbId: results[0].id, mediaType: results[0].mediaType, forceProvider });
+      } else {
+        // Multiple results, show picker
+        setSearchResults(results);
+        setIsSearching(false);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Search failed");
+      setIsSearching(false);
+    }
+  }, [isLoading, isSearching, generateCard]);
+
+  // Handle selection from disambiguation picker
+  const handleSelectResult = useCallback((result: SearchResult) => {
+    setTitle(result.title);
+    generateCard({ tmdbId: result.id, mediaType: result.mediaType, forceProvider: forceProviderRef });
+  }, [generateCard, forceProviderRef]);
 
   // Clickable title link component
   const TitleLink = ({ title: linkTitle, keyId }: { title: string; keyId: string }) => (
@@ -120,23 +181,33 @@ export default function Home() {
       });
     };
 
-    // Check if line is a calibration sentence: "If [Title] felt [X], this may feel [Y]"
+    // Check if line is a calibration sentence: "If [Title] felt [X], this feels/may feel [Y]"
     const renderCalibrationSentence = (line: string, key: number) => {
-      const match = line.match(/^If \*?(.+?)\*? felt (.+?), this may feel (.+)$/i);
+      // Strip outer asterisks and whitespace from the entire line first
+      let cleanLine = line.trim().replace(/^\*+|\*+$/g, '').trim();
+
+      // Match calibration pattern - handle both "this feels" and "this may feel"
+      // Also handle asterisks around title with or without spaces
+      const match = cleanLine.match(/^If\s*\*?(.+?)\*?\s*felt (.+?),\s*this (?:may )?feel[s]? (.+)$/i);
       if (match) {
         const [, titlePart, feltPart, mayFeelPart] = match;
-        // Strip any remaining asterisks from title
-        const cleanTitle = titlePart.replace(/^\*|\*$/g, '');
+        // Strip ALL asterisks from title and clean up
+        const cleanTitle = titlePart.replace(/\*/g, '').trim();
+        // Strip trailing period/asterisk from the ending
+        const cleanEnding = mayFeelPart.replace(/\.*\**$/, '').trim();
         return (
           <div key={key} className="mt-4 italic text-zinc-600 dark:text-zinc-400">
-            If <TitleLink title={cleanTitle} keyId={`${key}-cal`} /> felt {feltPart}, this may feel {mayFeelPart}
+            If <TitleLink title={cleanTitle} keyId={`${key}-cal`} /> felt {feltPart}, this feels like {cleanEnding}
           </div>
         );
       }
       return null;
     };
 
-    const lines = text.split("\n");
+    // Pre-process: fix Gemini's habit of putting "-" on its own line
+    const processedText = text.replace(/^-\s*\n/gm, '- ');
+
+    const lines = processedText.split("\n");
     return lines.map((line, i) => {
       // Handle comparison bullets: "- Title → description" or "- *Title* → description"
       if (line.startsWith("- ")) {
@@ -200,16 +271,16 @@ export default function Home() {
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Enter a show or movie title..."
               className="flex-1 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-zinc-900 placeholder-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder-zinc-500 dark:focus:border-zinc-600 dark:focus:ring-zinc-600"
-              disabled={isLoading}
+              disabled={isLoading || isSearching}
             />
             <button
               type="submit"
-              disabled={isLoading || !title.trim()}
+              disabled={isLoading || isSearching || !title.trim()}
               onClick={handleSubmit}
               className="rounded-lg bg-zinc-900 px-6 py-3 font-medium text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
               title="Shift+Click to use Claude"
             >
-              {isLoading ? "..." : "Go"}
+              {isLoading || isSearching ? "..." : "Go"}
             </button>
           </div>
         </form>
@@ -217,6 +288,57 @@ export default function Home() {
         {error && (
           <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
             {error}
+          </div>
+        )}
+
+        {searchResults.length > 0 && (
+          <div className="mb-6">
+            <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
+              Multiple matches found. Which one did you mean?
+            </p>
+            <div className="space-y-2">
+              {searchResults.map((result) => (
+                <button
+                  key={`${result.mediaType}-${result.id}`}
+                  onClick={() => handleSelectResult(result)}
+                  className="w-full flex items-start gap-4 p-3 rounded-lg border border-zinc-200 bg-white hover:border-zinc-400 hover:bg-zinc-50 transition-colors text-left dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
+                >
+                  {result.posterUrl ? (
+                    <Image
+                      src={result.posterUrl}
+                      alt={result.title}
+                      width={48}
+                      height={72}
+                      className="rounded flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-12 h-18 bg-zinc-200 dark:bg-zinc-700 rounded flex-shrink-0 flex items-center justify-center text-zinc-400 text-xs">
+                      No img
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-zinc-900 dark:text-zinc-100 truncate">
+                        {result.title}
+                      </span>
+                      {result.isCached && (
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                          Cached
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                      {result.year} · {result.mediaType === "tv" ? "TV Series" : "Film"}
+                    </p>
+                    {result.overview && (
+                      <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500 line-clamp-2">
+                        {result.overview}
+                      </p>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -268,7 +390,7 @@ export default function Home() {
           </article>
         )}
 
-        {isLoading && !card && !metadata && (
+        {(isLoading || isSearching) && !card && !metadata && searchResults.length === 0 && (
           <div className="flex justify-center">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-900 dark:border-zinc-700 dark:border-t-zinc-100"></div>
           </div>

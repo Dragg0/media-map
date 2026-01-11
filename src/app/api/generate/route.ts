@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt";
-import { searchMedia, formatContextForClaude, MediaInfo } from "@/lib/tmdb";
+import { searchMedia, getMediaById, formatContextForClaude, MediaInfo } from "@/lib/tmdb";
 import { getCachedCard, saveCard } from "@/lib/supabase";
 
 const anthropic = new Anthropic();
@@ -67,19 +67,26 @@ async function generateWithGemini(userMessage: string): Promise<AsyncIterable<st
 
 export async function POST(request: Request) {
   try {
-    const { title, forceProvider } = await request.json();
+    const { title, tmdbId, mediaType, forceProvider } = await request.json();
 
-    if (!title || typeof title !== "string") {
-      return new Response(JSON.stringify({ error: "Title is required" }), {
+    // Need either a title to search, or a tmdbId + mediaType to fetch directly
+    if (!title && !tmdbId) {
+      return new Response(JSON.stringify({ error: "Title or TMDB ID is required" }), {
         status: 400,
         headers: { "Content-Type": "application/json" },
       });
     }
 
-    // Fetch TMDB data first
+    // Fetch TMDB data - either by ID (disambiguation) or by search
     let mediaInfo: MediaInfo | null = null;
     try {
-      mediaInfo = await searchMedia(title);
+      if (tmdbId && mediaType) {
+        // Direct lookup by ID (user selected from disambiguation)
+        mediaInfo = await getMediaById(tmdbId, mediaType);
+      } else if (title) {
+        // Search by title
+        mediaInfo = await searchMedia(title);
+      }
     } catch (error) {
       console.error("TMDB fetch failed:", error);
     }
