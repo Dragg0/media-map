@@ -7,10 +7,12 @@ import { getCachedCard, saveCard } from "@/lib/supabase";
 const anthropic = new Anthropic();
 const gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
+const STREAM_TIMEOUT_MS = 8000; // 8 seconds between chunks before timeout
+
 // Generate with Claude (primary)
 async function generateWithClaude(userMessage: string): Promise<AsyncIterable<string>> {
   const stream = anthropic.messages.stream({
-    model: "claude-sonnet-4-20250514", // Best balance of quality and speed
+    model: "claude-sonnet-4-20250514",
     max_tokens: 1024,
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: userMessage }],
@@ -102,13 +104,34 @@ export async function POST(request: Request) {
       ? `Here is information about the title:\n\n${tmdbContext}\n\nBased on this information and your knowledge, create an emotional calibration card for "${mediaInfo?.title || title}".`
       : `Create an emotional calibration card for "${title}".`;
 
+    // Helper to get first chunk with timeout (proves stream is working)
+    async function getFirstChunk(
+      stream: AsyncIterable<string>
+    ): Promise<{ firstChunk: string; iterator: AsyncIterator<string> }> {
+      const iterator = stream[Symbol.asyncIterator]();
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error("Stream timeout")), STREAM_TIMEOUT_MS);
+      });
+
+      const result = await Promise.race([iterator.next(), timeoutPromise]);
+      if (result.done) {
+        return { firstChunk: "", iterator };
+      }
+      return { firstChunk: result.value, iterator };
+    }
+
     // Use forced provider or try Claude first, fall back to Gemini
-    let textStream: AsyncIterable<string>;
     let provider = forceProvider || "claude";
+    let firstChunk = "";
+    let iterator: AsyncIterator<string>;
 
     if (forceProvider === "gemini") {
       try {
-        textStream = await generateWithGemini(userMessage);
+        const stream = await generateWithGemini(userMessage);
+        const result = await getFirstChunk(stream);
+        firstChunk = result.firstChunk;
+        iterator = result.iterator;
       } catch (geminiError) {
         console.error("Gemini failed:", geminiError);
         return new Response(
@@ -118,13 +141,19 @@ export async function POST(request: Request) {
       }
     } else {
       try {
-        textStream = await generateWithClaude(userMessage);
+        const stream = await generateWithClaude(userMessage);
+        const result = await getFirstChunk(stream);
+        firstChunk = result.firstChunk;
+        iterator = result.iterator;
       } catch (claudeError) {
-        console.error("Claude failed, trying Gemini:", claudeError);
+        console.error("Claude failed or timed out, trying Gemini:", claudeError);
         provider = "gemini";
 
         try {
-          textStream = await generateWithGemini(userMessage);
+          const stream = await generateWithGemini(userMessage);
+          const result = await getFirstChunk(stream);
+          firstChunk = result.firstChunk;
+          iterator = result.iterator;
         } catch (geminiError) {
           console.error("Gemini also failed:", geminiError);
           return new Response(
@@ -136,7 +165,7 @@ export async function POST(request: Request) {
     }
 
     const encoder = new TextEncoder();
-    let fullContent = "";
+    let fullContent = firstChunk;
 
     const readableStream = new ReadableStream({
       async start(controller) {
@@ -156,10 +185,22 @@ export async function POST(request: Request) {
             controller.enqueue(encoder.encode(`__METADATA__${metadata}__END_METADATA__`));
           }
 
-          // Stream the response
-          for await (const text of textStream) {
-            fullContent += text;
-            controller.enqueue(encoder.encode(text));
+          // Send the first chunk we already got
+          if (firstChunk) {
+            controller.enqueue(encoder.encode(firstChunk));
+          }
+
+          // Continue streaming the rest
+          while (true) {
+            const timeoutPromise = new Promise<never>((_, reject) => {
+              setTimeout(() => reject(new Error("Stream timeout")), STREAM_TIMEOUT_MS);
+            });
+
+            const result = await Promise.race([iterator.next(), timeoutPromise]);
+            if (result.done) break;
+
+            fullContent += result.value;
+            controller.enqueue(encoder.encode(result.value));
           }
 
           // Save to cache after generation completes
