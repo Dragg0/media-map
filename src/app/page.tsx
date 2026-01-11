@@ -93,6 +93,17 @@ export default function Home() {
     }
   }, [isLoading]);
 
+  // Clickable title link component
+  const TitleLink = ({ title: linkTitle, keyId }: { title: string; keyId: string }) => (
+    <button
+      key={keyId}
+      onClick={() => searchTitle(linkTitle)}
+      className="italic text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 underline decoration-zinc-300 dark:decoration-zinc-600 hover:decoration-zinc-500 dark:hover:decoration-zinc-400 cursor-pointer bg-transparent border-none p-0 font-inherit transition-colors"
+    >
+      {linkTitle}
+    </button>
+  );
+
   // Markdown renderer with clickable title links
   const renderMarkdown = useCallback((text: string) => {
     const formatInline = (str: string, keyPrefix: string): React.ReactNode[] => {
@@ -103,15 +114,7 @@ export default function Home() {
         }
         if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
           const titleText = part.slice(1, -1);
-          return (
-            <button
-              key={`${keyPrefix}-${j}`}
-              onClick={() => searchTitle(titleText)}
-              className="italic text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 hover:underline cursor-pointer bg-transparent border-none p-0 font-inherit"
-            >
-              {titleText}
-            </button>
-          );
+          return <TitleLink key={`${keyPrefix}-${j}`} title={titleText} keyId={`${keyPrefix}-${j}`} />;
         }
         return part;
       });
@@ -119,11 +122,28 @@ export default function Home() {
 
     const lines = text.split("\n");
     return lines.map((line, i) => {
+      // Handle comparison bullets: "- Title → description"
       if (line.startsWith("- ")) {
+        const content = line.slice(2);
+        const arrowMatch = content.match(/^(.+?)\s*→\s*(.*)$/);
+
+        if (arrowMatch) {
+          const [, compTitle, description] = arrowMatch;
+          return (
+            <div key={i} className="flex gap-2 ml-2">
+              <span>-</span>
+              <span>
+                <TitleLink title={compTitle.trim()} keyId={`${i}-title`} />
+                <span> → {description}</span>
+              </span>
+            </div>
+          );
+        }
+
         return (
           <div key={i} className="flex gap-2 ml-2">
             <span>-</span>
-            <span>{formatInline(line.slice(2), `${i}`)}</span>
+            <span>{formatInline(content, `${i}`)}</span>
           </div>
         );
       }
