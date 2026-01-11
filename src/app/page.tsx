@@ -188,16 +188,16 @@ export default function Home() {
 
       // Match calibration pattern - handle both "this feels" and "this may feel"
       // Also handle asterisks around title with or without spaces
-      const match = cleanLine.match(/^If\s*\*?(.+?)\*?\s*felt (.+?),\s*this (?:may )?feel[s]? (.+)$/i);
+      const match = cleanLine.match(/^If\s*\*?(.+?)\*?\s*felt (.+?),\s*this ((?:may )?feel[s]? .+)$/i);
       if (match) {
-        const [, titlePart, feltPart, mayFeelPart] = match;
+        const [, titlePart, feltPart, feelsPart] = match;
         // Strip ALL asterisks from title and clean up
         const cleanTitle = titlePart.replace(/\*/g, '').trim();
         // Strip trailing period/asterisk from the ending
-        const cleanEnding = mayFeelPart.replace(/\.*\**$/, '').trim();
+        const cleanEnding = feelsPart.replace(/\.*\**$/, '').trim();
         return (
           <div key={key} className="mt-4 italic text-zinc-600 dark:text-zinc-400">
-            If <TitleLink title={cleanTitle} keyId={`${key}-cal`} /> felt {feltPart}, this feels like {cleanEnding}
+            If <TitleLink title={cleanTitle} keyId={`${key}-cal`} /> felt {feltPart}, this {cleanEnding}
           </div>
         );
       }
