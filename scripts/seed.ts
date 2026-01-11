@@ -263,6 +263,7 @@ async function saveCard(card: {
   posterUrl: string | null;
   genres: string[];
   cardContent: string;
+  provider: string;
 }): Promise<void> {
   const { error } = await supabase.from("cards").insert({
     tmdb_id: card.tmdbId,
@@ -272,6 +273,7 @@ async function saveCard(card: {
     poster_url: card.posterUrl,
     genres: card.genres,
     card_content: card.cardContent,
+    provider: card.provider,
   });
 
   if (error) throw error;
@@ -318,6 +320,7 @@ async function processItem(
         : null,
       genres: details.genres.map((g) => g.name),
       cardContent,
+      provider: "claude",
     });
 
     console.log(`${prefix} ✅ Saved "${title}"`);

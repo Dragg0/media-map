@@ -160,6 +160,7 @@ export async function POST(request: Request) {
               posterUrl: mediaInfo.posterUrl,
               genres: mediaInfo.genres,
               cardContent: fullContent,
+              provider,
             }).catch(console.error);
           }
 

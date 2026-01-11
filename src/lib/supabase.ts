@@ -14,6 +14,7 @@ export interface CachedCard {
   poster_url: string | null;
   genres: string[] | null;
   card_content: string;
+  provider: string | null;
   created_at: string;
 }
 
@@ -39,6 +40,7 @@ export async function saveCard(card: {
   posterUrl: string | null;
   genres: string[] | null;
   cardContent: string;
+  provider: string;
 }): Promise<void> {
   const { error } = await supabase.from("cards").insert({
     tmdb_id: card.tmdbId,
@@ -48,6 +50,7 @@ export async function saveCard(card: {
     poster_url: card.posterUrl,
     genres: card.genres,
     card_content: card.cardContent,
+    provider: card.provider,
   });
 
   if (error) {
