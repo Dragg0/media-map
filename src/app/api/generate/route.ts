@@ -30,7 +30,7 @@ async function generateWithClaude(userMessage: string): Promise<AsyncIterable<st
 // Generate with Gemini (fallback)
 async function generateWithGemini(userMessage: string): Promise<AsyncIterable<string>> {
   const model = gemini.getGenerativeModel({
-    model: "gemini-1.5-pro", // Best Gemini model
+    model: "gemini-3-pro-preview",
     systemInstruction: SYSTEM_PROMPT,
   });
 
