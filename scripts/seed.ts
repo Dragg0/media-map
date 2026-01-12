@@ -1,4 +1,4 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createClient } from "@supabase/supabase-js";
 import { config } from "dotenv";
 
@@ -6,9 +6,10 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+const GEMINI_MODEL = "gemini-2.5-flash-lite-preview-06-17";
 
 // Initialize clients
-const anthropic = new Anthropic();
+const gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -230,20 +231,16 @@ function formatContextForClaude(details: TMDBDetails, type: "movie" | "tv"): str
 }
 
 async function generateCard(context: string, title: string): Promise<string> {
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 1024,
-    system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: `Here is information about the title:\n\n${context}\n\nBased on this information and your knowledge, create an emotional calibration card for "${title}".`,
-      },
-    ],
+  const model = gemini.getGenerativeModel({
+    model: GEMINI_MODEL,
+    systemInstruction: SYSTEM_PROMPT,
   });
 
-  const textBlock = message.content.find((block) => block.type === "text");
-  return textBlock ? textBlock.text : "";
+  const result = await model.generateContent(
+    `Here is information about the title:\n\n${context}\n\nBased on this information and your knowledge, create an emotional calibration card for "${title}".`
+  );
+
+  return result.response.text();
 }
 
 async function checkExists(tmdbId: number): Promise<boolean> {
@@ -320,7 +317,7 @@ async function processItem(
         : null,
       genres: details.genres.map((g) => g.name),
       cardContent,
-      provider: "claude",
+      provider: GEMINI_MODEL,
     });
 
     console.log(`${prefix} ✅ Saved "${title}"`);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
 
 interface MediaMetadata {
@@ -21,6 +21,30 @@ interface SearchResult {
   isCached: boolean;
 }
 
+// Sort results: exact title matches first, then by year descending
+function sortSearchResults(results: SearchResult[], query: string): SearchResult[] {
+  const normalizedQuery = query.trim().toLowerCase();
+
+  return [...results].sort((a, b) => {
+    const aTitle = a.title.trim().toLowerCase();
+    const bTitle = b.title.trim().toLowerCase();
+    const aExact = aTitle === normalizedQuery;
+    const bExact = bTitle === normalizedQuery;
+
+    // Exact matches first
+    if (aExact && !bExact) return -1;
+    if (!aExact && bExact) return 1;
+
+    // Then by year descending
+    const aYear = parseInt(a.year) || 0;
+    const bYear = parseInt(b.year) || 0;
+    if (aYear !== bYear) return bYear - aYear;
+
+    // Stable fallback: maintain original order
+    return 0;
+  });
+}
+
 export default function Home() {
   const [title, setTitle] = useState("");
   const [card, setCard] = useState("");
@@ -29,8 +53,26 @@ export default function Home() {
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [highlightIndex, setHighlightIndex] = useState(0);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [forceProviderRef, setForceProviderRef] = useState<string | undefined>();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Reset highlight when results change
+  useEffect(() => {
+    setHighlightIndex(0);
+  }, [searchResults]);
+
+  // Scroll highlighted item into view
+  useEffect(() => {
+    if (listRef.current && searchResults.length > 0) {
+      const highlightedItem = listRef.current.querySelector(`[data-index="${highlightIndex}"]`);
+      if (highlightedItem) {
+        highlightedItem.scrollIntoView({ block: "nearest" });
+      }
+    }
+  }, [highlightIndex, searchResults.length]);
 
   // Generate card for a specific media (by ID or title)
   const generateCard = useCallback(async (params: { title?: string; tmdbId?: number; mediaType?: "movie" | "tv"; forceProvider?: string }) => {
@@ -138,8 +180,8 @@ export default function Home() {
         setIsSearching(false);
         generateCard({ tmdbId: results[0].id, mediaType: results[0].mediaType, forceProvider });
       } else {
-        // Multiple results, show picker
-        setSearchResults(results);
+        // Multiple results, show picker (sorted with exact matches first)
+        setSearchResults(sortSearchResults(results, searchQuery));
         setIsSearching(false);
       }
     } catch (err) {
@@ -153,6 +195,35 @@ export default function Home() {
     setTitle(result.title);
     generateCard({ tmdbId: result.id, mediaType: result.mediaType, forceProvider: forceProviderRef });
   }, [generateCard, forceProviderRef]);
+
+  // Keyboard navigation handler
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Ignore if composing (IME input)
+    if (e.nativeEvent.isComposing) return;
+
+    // Only handle navigation when disambiguation list is visible
+    if (searchResults.length === 0) return;
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setHighlightIndex((prev) => Math.min(prev + 1, searchResults.length - 1));
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setHighlightIndex((prev) => Math.max(prev - 1, 0));
+        break;
+      case "Enter":
+        e.preventDefault();
+        handleSelectResult(searchResults[highlightIndex]);
+        break;
+      case "Escape":
+        e.preventDefault();
+        setSearchResults([]);
+        inputRef.current?.focus();
+        break;
+    }
+  }, [searchResults, highlightIndex, handleSelectResult]);
 
   // Clickable title link component
   const TitleLink = ({ title: linkTitle, keyId }: { title: string; keyId: string }) => (
@@ -266,12 +337,18 @@ export default function Home() {
         <form onSubmit={handleSubmit} className="mb-10">
           <div className="flex gap-3">
             <input
+              ref={inputRef}
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder="Enter a show or movie title..."
               className="flex-1 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-zinc-900 placeholder-zinc-400 focus:border-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder-zinc-500 dark:focus:border-zinc-600 dark:focus:ring-zinc-600"
               disabled={isLoading || isSearching}
+              role={searchResults.length > 0 ? "combobox" : undefined}
+              aria-expanded={searchResults.length > 0}
+              aria-controls={searchResults.length > 0 ? "disambiguation-list" : undefined}
+              aria-activedescendant={searchResults.length > 0 ? `result-${highlightIndex}` : undefined}
             />
             <button
               type="submit"
@@ -296,12 +373,27 @@ export default function Home() {
             <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
               Multiple matches found. Which one did you mean?
             </p>
-            <div className="space-y-2">
-              {searchResults.map((result) => (
+            <div
+              ref={listRef}
+              id="disambiguation-list"
+              role="listbox"
+              aria-label="Search results"
+              className="space-y-2"
+            >
+              {searchResults.map((result, index) => (
                 <button
                   key={`${result.mediaType}-${result.id}`}
+                  id={`result-${index}`}
+                  data-index={index}
+                  role="option"
+                  aria-selected={index === highlightIndex}
                   onClick={() => handleSelectResult(result)}
-                  className="w-full flex items-start gap-4 p-3 rounded-lg border border-zinc-200 bg-white hover:border-zinc-400 hover:bg-zinc-50 transition-colors text-left dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
+                  onMouseEnter={() => setHighlightIndex(index)}
+                  className={`w-full flex items-start gap-4 p-3 rounded-lg border transition-colors text-left ${
+                    index === highlightIndex
+                      ? "border-zinc-400 bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-800"
+                      : "border-zinc-200 bg-white hover:border-zinc-400 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
+                  }`}
                 >
                   {result.posterUrl ? (
                     <Image

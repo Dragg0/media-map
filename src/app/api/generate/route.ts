@@ -8,6 +8,8 @@ const anthropic = new Anthropic();
 const gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 const STREAM_TIMEOUT_MS = 8000; // 8 seconds between chunks before timeout
+const GEMINI_MODEL = "gemini-2.5-flash-lite-preview-06-17";
+const CLAUDE_MODEL = "claude-sonnet-4-20250514";
 
 // Helper to get first chunk with timeout (proves stream is working)
 async function getFirstChunk(
@@ -29,7 +31,7 @@ async function getFirstChunk(
 // Generate with Claude (primary)
 async function generateWithClaude(userMessage: string): Promise<AsyncIterable<string>> {
   const stream = anthropic.messages.stream({
-    model: "claude-sonnet-4-20250514",
+    model: CLAUDE_MODEL,
     max_tokens: 1024,
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: userMessage }],
@@ -49,7 +51,7 @@ async function generateWithClaude(userMessage: string): Promise<AsyncIterable<st
 // Generate with Gemini (fallback)
 async function generateWithGemini(userMessage: string): Promise<AsyncIterable<string>> {
   const model = gemini.getGenerativeModel({
-    model: "gemini-3-flash-preview",
+    model: GEMINI_MODEL,
     systemInstruction: SYSTEM_PROMPT,
   });
 
@@ -129,7 +131,7 @@ export async function POST(request: Request) {
       : `Create an emotional calibration card for "${title}".`;
 
     // Use forced provider or try Gemini first (faster), fall back to Claude
-    let provider = forceProvider || "gemini";
+    let provider = forceProvider === "claude" ? CLAUDE_MODEL : GEMINI_MODEL;
     let firstChunk = "";
     let iterator: AsyncIterator<string>;
 
@@ -154,7 +156,7 @@ export async function POST(request: Request) {
         iterator = result.iterator;
       } catch (geminiError) {
         console.error("Gemini failed or timed out, trying Claude:", geminiError);
-        provider = "claude";
+        provider = CLAUDE_MODEL;
 
         try {
           const stream = await generateWithClaude(userMessage);
@@ -210,18 +212,22 @@ export async function POST(request: Request) {
             controller.enqueue(encoder.encode(result.value));
           }
 
-          // Save to cache after generation completes
+          // Save to cache after generation completes (await to ensure it completes before function ends)
           if (mediaInfo && fullContent) {
-            saveCard({
-              tmdbId: mediaInfo.id,
-              title: mediaInfo.title,
-              mediaType: mediaInfo.mediaType,
-              year: mediaInfo.year,
-              posterUrl: mediaInfo.posterUrl,
-              genres: mediaInfo.genres,
-              cardContent: fullContent,
-              provider,
-            }).catch(console.error);
+            try {
+              await saveCard({
+                tmdbId: mediaInfo.id,
+                title: mediaInfo.title,
+                mediaType: mediaInfo.mediaType,
+                year: mediaInfo.year,
+                posterUrl: mediaInfo.posterUrl,
+                genres: mediaInfo.genres,
+                cardContent: fullContent,
+                provider,
+              });
+            } catch (saveError) {
+              console.error("Failed to save card:", saveError);
+            }
           }
 
           controller.close();
