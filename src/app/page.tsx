@@ -357,7 +357,7 @@ export default function Home() {
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <div className="mx-auto max-w-2xl px-6 py-16">
         <header className="mb-12 text-center">
-          <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+          <h1 className="text-5xl font-semibold tracking-wide text-zinc-900 dark:text-zinc-100">
             Texture
           </h1>
           <p className="mt-2 text-zinc-600 dark:text-zinc-400">

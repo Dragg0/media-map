@@ -62,7 +62,7 @@ export default async function CardPage({ params }: PageProps) {
       <div className="mx-auto max-w-2xl px-6 py-16">
         <header className="mb-12 text-center">
           <a href="/" className="inline-block">
-            <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
+            <h1 className="text-5xl font-semibold tracking-wide text-zinc-900 dark:text-zinc-100">
               Texture
             </h1>
           </a>
