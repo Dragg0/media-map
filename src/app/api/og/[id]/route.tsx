@@ -2,7 +2,10 @@ import { ImageResponse } from "@vercel/og";
 
 export const runtime = "edge";
 
-export async function GET() {
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   return new ImageResponse(
     (
       <div
@@ -17,7 +20,7 @@ export async function GET() {
           fontSize: 72,
         }}
       >
-        Hello World
+        Card ID: {params.id}
       </div>
     ),
     {
