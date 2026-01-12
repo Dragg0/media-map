@@ -3,6 +3,27 @@ import { ImageResponse } from "@vercel/og";
 
 export const runtime = "edge";
 
+// Fetch image and convert to data URL
+async function fetchAsDataURL(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "image/*",
+      },
+    });
+
+    if (!res.ok) return null;
+
+    const contentType = res.headers.get("content-type") ?? "image/jpeg";
+    const arrayBuffer = await res.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString("base64");
+    return `data:${contentType};base64,${base64}`;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
@@ -32,13 +53,13 @@ export async function GET(
         (
           <div
             style={{
-              background: "#0a0a0a",
-              color: "white",
-              width: "100%",
-              height: "100%",
+              width: 1200,
+              height: 630,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              backgroundColor: "#0a0a0a",
+              color: "white",
               fontSize: 48,
             }}
           >
@@ -49,6 +70,10 @@ export async function GET(
       );
     }
 
+    // Fetch poster as data URL (avoids remote image issues)
+    const posterUrl = card.poster_url?.startsWith("http") ? card.poster_url : null;
+    const posterDataUrl = posterUrl ? await fetchAsDataURL(posterUrl) : null;
+
     const genreDisplay = card.genres?.[0] || "";
     const typeDisplay = card.media_type === "tv" ? "TV Series" : "Film";
     const metaLine = [card.year, typeDisplay, genreDisplay].filter(Boolean).join(" · ");
@@ -58,65 +83,57 @@ export async function GET(
       (
         <div
           style={{
-            width: "100%",
-            height: "100%",
-            background: "#0a0a0a",
+            width: 1200,
+            height: 630,
             display: "flex",
+            backgroundColor: "#0a0a0a",
+            color: "white",
+            padding: 48,
+            gap: 36,
           }}
         >
-          {/* Poster Section */}
+          {/* Poster */}
           <div
             style={{
-              width: 300,
-              height: "100%",
+              width: 280,
+              height: 534,
+              borderRadius: 16,
+              overflow: "hidden",
+              backgroundColor: "#222",
+              flexShrink: 0,
               display: "flex",
-              position: "relative",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            {card.poster_url ? (
+            {posterDataUrl ? (
               <img
-                src={card.poster_url}
-                width={300}
-                height={630}
-                style={{
-                  objectFit: "cover",
-                }}
+                src={posterDataUrl}
+                width={280}
+                height={534}
+                style={{ objectFit: "cover" }}
               />
             ) : (
-              <div
-                style={{
-                  width: 300,
-                  height: "100%",
-                  background: "#2a2a2a",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#666",
-                  fontSize: 24,
-                }}
-              >
-                No Poster
-              </div>
+              <div style={{ color: "#666", fontSize: 20 }}>No Poster</div>
             )}
           </div>
 
-          {/* Content Section */}
+          {/* Content */}
           <div
             style={{
-              flex: 1,
-              padding: 60,
+              width: 788,
+              height: 534,
               display: "flex",
               flexDirection: "column",
-              justifyContent: "center",
             }}
           >
             {/* Branding */}
             <div
               style={{
-                fontSize: 18,
+                fontSize: 16,
                 letterSpacing: 4,
                 color: "#666",
-                marginBottom: 20,
+                marginBottom: 16,
               }}
             >
               TEXTURE
@@ -125,10 +142,9 @@ export async function GET(
             {/* Title */}
             <div
               style={{
-                fontSize: card.title.length > 20 ? 48 : 64,
+                fontSize: card.title.length > 25 ? 44 : 56,
                 fontWeight: 700,
-                color: "#fff",
-                marginBottom: 12,
+                marginBottom: 8,
               }}
             >
               {card.title}
@@ -139,7 +155,7 @@ export async function GET(
               style={{
                 fontSize: 20,
                 color: "#888",
-                marginBottom: 50,
+                marginBottom: 40,
               }}
             >
               {metaLine}
@@ -148,26 +164,23 @@ export async function GET(
             {/* Calibration Sentence */}
             <div
               style={{
-                fontSize: 26,
+                fontSize: 24,
                 fontStyle: "italic",
                 color: "#e0e0e0",
                 borderLeft: "4px solid #8b5cf6",
-                paddingLeft: 24,
-                maxWidth: 650,
+                paddingLeft: 20,
+                paddingTop: 4,
+                paddingBottom: 4,
               }}
             >
               {calibrationSentence}
             </div>
 
+            {/* Spacer */}
+            <div style={{ flexGrow: 1 }}></div>
+
             {/* Tagline */}
-            <div
-              style={{
-                marginTop: "auto",
-                fontSize: 16,
-                color: "#555",
-                display: "flex",
-              }}
-            >
+            <div style={{ fontSize: 16, color: "#555" }}>
               texture.watch
             </div>
           </div>
@@ -180,17 +193,18 @@ export async function GET(
       (
         <div
           style={{
-            background: "#0a0a0a",
-            color: "red",
-            width: "100%",
-            height: "100%",
+            width: 1200,
+            height: 630,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: 32,
+            backgroundColor: "#0a0a0a",
+            color: "red",
+            fontSize: 28,
+            padding: 40,
           }}
         >
-          Error: {err instanceof Error ? err.message : "Unknown"}
+          OG ERROR: {err instanceof Error ? err.message : String(err)}
         </div>
       ),
       { width: 1200, height: 630 }
