@@ -358,10 +358,10 @@ export default function Home() {
       <div className="mx-auto max-w-2xl px-6 py-16">
         <header className="mb-12 text-center">
           <h1 className="text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">
-            How does it feel?
+            Texture
           </h1>
           <p className="mt-2 text-zinc-600 dark:text-zinc-400">
-            Understand the emotional experience before you watch
+            Know what it&apos;s like before you watch
           </p>
         </header>
 
