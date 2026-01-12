@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 import { ImageResponse } from "@vercel/og";
 import { getCardById } from "@/lib/supabase";
 
@@ -22,7 +23,7 @@ export async function GET(
   const metaLine = [card.year, typeDisplay, genreDisplay].filter(Boolean).join(" · ");
 
   // Use calibration sentence or fallback
-  const calibrationSentence = card.calibration_sentence || "Know what it's like before you watch.";
+  const calibrationSentence = card.calibration_sentence || "Know what it is like before you watch.";
 
   return new ImageResponse(
     (
@@ -143,7 +144,7 @@ export async function GET(
               maxWidth: "700px",
             }}
           >
-            "{calibrationSentence}"
+            &ldquo;{calibrationSentence}&rdquo;
           </div>
 
           {/* Tagline */}
@@ -158,7 +159,7 @@ export async function GET(
           >
             texture.watch ·{" "}
             <span style={{ color: "#888", marginLeft: "8px" }}>
-              Know what it's like before you watch
+              Know what it&apos;s like before you watch
             </span>
           </div>
         </div>
