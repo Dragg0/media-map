@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      background: #1a1a1a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 40px;
+    }
+    
+    .og-image {
+      width: 1200px;
+      height: 630px;
+      background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+      border-radius: 0;
+      display: flex;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    
+    .poster-section {
+      width: 300px;
+      height: 100%;
+      flex-shrink: 0;
+      position: relative;
+    }
+    
+    .poster-section img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .poster-overlay {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 80px;
+      height: 100%;
+      background: linear-gradient(to right, transparent, #0a0a0a);
+    }
+    
+    .content-section {
+      flex: 1;
+      padding: 60px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    
+    .branding {
+      font-size: 18px;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      color: #666;
+      margin-bottom: 20px;
+    }
+    
+    .title {
+      font-size: 64px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 12px;
+    }
+    
+    .meta {
+      font-size: 20px;
+      color: #888;
+      margin-bottom: 50px;
+    }
+    
+    .calibration {
+      font-size: 32px;
+      font-style: italic;
+      color: #e0e0e0;
+      line-height: 1.4;
+      border-left: 4px solid #8b5cf6;
+      padding-left: 24px;
+    }
+    
+    .calibration .highlight {
+      color: #a78bfa;
+    }
+    
+    .tagline {
+      margin-top: auto;
+      padding-top: 40px;
+      font-size: 16px;
+      color: #555;
+    }
+    
+    .tagline span {
+      color: #888;
+    }
+  </style>
+</head>
+<body>
+  <div class="og-image">
+    <div class="poster-section">
+      <img src="https://image.tmdb.org/t/p/w500/6aN0V5rIA2zhLnLhnvlCzMDRdMk.jpg" alt="Twilight poster">
+      <div class="poster-overlay"></div>
+    </div>
+    <div class="content-section">
+      <div class="branding">Texture</div>
+      <div class="title">Twilight</div>
+      <div class="meta">2008 · Film · Romance</div>
+      <div class="calibration">
+        "If <span class="highlight">You</span> felt uncomfortably obsessive, this may feel romantically overwhelming."
+      </div>
+      <div class="tagline">texture.watch · <span>Know what it's like before you watch</span></div>
+    </div>
+  </div>
+</body>
+</html>

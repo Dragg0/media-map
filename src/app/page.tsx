@@ -2,13 +2,16 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
+import ShareButton from "@/components/ShareButton";
 
 interface MediaMetadata {
+  id?: string;
   title: string;
   year: string;
   posterUrl: string | null;
   mediaType: "movie" | "tv";
   genres: string[];
+  calibrationSentence?: string | null;
 }
 
 interface SearchResult {
@@ -106,6 +109,7 @@ export default function Home() {
       const decoder = new TextDecoder();
       let accumulated = "";
       let metadataParsed = false;
+      let currentMetadata: MediaMetadata | null = null;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -119,6 +123,7 @@ export default function Home() {
           if (metadataMatch) {
             try {
               const parsed = JSON.parse(metadataMatch[1]);
+              currentMetadata = parsed.data;
               setMetadata(parsed.data);
             } catch {
               // Ignore parsing errors
@@ -131,8 +136,34 @@ export default function Home() {
           }
         }
 
+        // Check for card info at the end of stream (contains ID and calibration sentence)
+        if (accumulated.includes("__END_CARD_INFO__")) {
+          const cardInfoMatch = accumulated.match(
+            /__CARD_INFO__(.+?)__END_CARD_INFO__/
+          );
+          if (cardInfoMatch) {
+            try {
+              const cardInfo = JSON.parse(cardInfoMatch[1]);
+              // Update metadata with card ID and calibration sentence
+              if (currentMetadata) {
+                setMetadata({
+                  ...currentMetadata,
+                  id: cardInfo.id,
+                  calibrationSentence: cardInfo.calibrationSentence,
+                });
+              }
+            } catch {
+              // Ignore parsing errors
+            }
+            accumulated = accumulated.replace(
+              /__CARD_INFO__.+?__END_CARD_INFO__/,
+              ""
+            );
+          }
+        }
+
         const displayContent = metadataParsed
-          ? accumulated
+          ? accumulated.replace(/__CARD_INFO__.+?(__END_CARD_INFO__)?/, "")
           : accumulated.replace(/__METADATA__.+?(__END_METADATA__)?/, "");
         setCard(displayContent);
       }
@@ -436,9 +467,19 @@ export default function Home() {
 
         {(card || metadata) && (
           <article className="prose prose-zinc dark:prose-invert max-w-none">
-            <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="rounded-lg border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-900 relative">
+              {/* Share Button */}
+              {metadata?.id && (
+                <div className="absolute top-4 right-4">
+                  <ShareButton
+                    url={`${typeof window !== 'undefined' ? window.location.origin : ''}/card/${metadata.id}`}
+                    title={metadata.title}
+                    calibrationSentence={metadata.calibrationSentence || null}
+                  />
+                </div>
+              )}
               {metadata && (
-                <div className="mb-6 flex gap-5">
+                <div className="mb-6 flex gap-5 pr-12">
                   {metadata.posterUrl && (
                     <div className="flex-shrink-0">
                       <Image

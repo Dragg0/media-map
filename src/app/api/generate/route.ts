@@ -101,11 +101,13 @@ export async function POST(request: Request) {
           const metadata = JSON.stringify({
             type: "metadata",
             data: {
+              id: cached.id,
               title: cached.title,
               year: cached.year,
               posterUrl: cached.poster_url,
               mediaType: cached.media_type,
               genres: cached.genres || [],
+              calibrationSentence: cached.calibration_sentence,
             },
           });
 
@@ -215,7 +217,7 @@ export async function POST(request: Request) {
           // Save to cache after generation completes (await to ensure it completes before function ends)
           if (mediaInfo && fullContent) {
             try {
-              await saveCard({
+              const savedCard = await saveCard({
                 tmdbId: mediaInfo.id,
                 title: mediaInfo.title,
                 mediaType: mediaInfo.mediaType,
@@ -225,6 +227,15 @@ export async function POST(request: Request) {
                 cardContent: fullContent,
                 provider,
               });
+
+              // Send card ID and calibration sentence at the end of the stream
+              if (savedCard) {
+                const cardInfo = JSON.stringify({
+                  id: savedCard.id,
+                  calibrationSentence: savedCard.calibrationSentence,
+                });
+                controller.enqueue(encoder.encode(`__CARD_INFO__${cardInfo}__END_CARD_INFO__`));
+              }
             } catch (saveError) {
               console.error("Failed to save card:", saveError);
             }
