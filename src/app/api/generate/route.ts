@@ -267,6 +267,12 @@ export async function POST(request: Request) {
                   comparisons: savedCard.comparisons,
                 });
                 controller.enqueue(encoder.encode(`__CARD_INFO__${cardInfo}__END_CARD_INFO__`));
+
+                // Pre-warm the OG image cache so it's ready for social sharing
+                const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://texture.watch";
+                fetch(`${baseUrl}/api/og/${savedCard.slug}`).catch(() => {
+                  // Ignore errors - this is just cache warming
+                });
               }
             } catch (saveError) {
               console.error("Failed to save card:", saveError);
