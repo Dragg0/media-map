@@ -1,8 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { SYSTEM_PROMPT } from "@/lib/system-prompt";
-import { searchMedia, getMediaById, formatContextForClaude, MediaInfo } from "@/lib/tmdb";
-import { getCachedCard, saveCard } from "@/lib/supabase";
+import { searchMedia, getMediaById, formatContextForClaude, MediaInfo, resolveComparisonTitle } from "@/lib/tmdb";
+import { getCachedCard, saveCard, parseComparisons, generateSlug, Comparison } from "@/lib/supabase";
 
 const anthropic = new Anthropic();
 const gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
@@ -102,12 +102,14 @@ export async function POST(request: Request) {
             type: "metadata",
             data: {
               id: cached.id,
+              slug: cached.slug,
               title: cached.title,
               year: cached.year,
               posterUrl: cached.poster_url,
               mediaType: cached.media_type,
               genres: cached.genres || [],
               calibrationSentence: cached.calibration_sentence,
+              comparisons: cached.comparisons || [],
             },
           });
 
@@ -129,7 +131,7 @@ export async function POST(request: Request) {
     // Generate new card
     const tmdbContext = mediaInfo ? formatContextForClaude(mediaInfo) : "";
     const userMessage = tmdbContext
-      ? `Here is information about the title:\n\n${tmdbContext}\n\nBased on this information and your knowledge, create an emotional calibration card for "${mediaInfo?.title || title}".`
+      ? `Here is information about the title:\n\n${tmdbContext}\n\nBased on this information and your knowledge, create an emotional calibration card for "${mediaInfo?.title || title}". IMPORTANT: Use this exact title "${mediaInfo?.title}" throughout your response.`
       : `Create an emotional calibration card for "${title}".`;
 
     // Use forced provider or try Gemini first (faster), fall back to Claude
@@ -217,6 +219,33 @@ export async function POST(request: Request) {
           // Save to cache after generation completes (await to ensure it completes before function ends)
           if (mediaInfo && fullContent) {
             try {
+              // Parse and resolve comparisons from the generated content
+              const parsedComparisons = parseComparisons(fullContent);
+              let resolvedComparisons: Comparison[] = [];
+
+              if (parsedComparisons.length > 0) {
+                console.log(`Resolving ${parsedComparisons.length} comparisons...`);
+                const resolutionPromises = parsedComparisons.map(async (pc) => {
+                  const resolved = await resolveComparisonTitle(pc.title);
+                  if (resolved) {
+                    return {
+                      title: resolved.title,
+                      original_title: pc.title, // Store original for matching
+                      tmdb_id: resolved.tmdb_id,
+                      media_type: resolved.media_type,
+                      year: resolved.year,
+                      slug: generateSlug(resolved.title, resolved.year),
+                      phrase: pc.phrase,
+                    } as Comparison;
+                  }
+                  return null;
+                });
+
+                const results = await Promise.all(resolutionPromises);
+                resolvedComparisons = results.filter((c): c is Comparison => c !== null);
+                console.log(`Resolved ${resolvedComparisons.length} comparisons successfully`);
+              }
+
               const savedCard = await saveCard({
                 tmdbId: mediaInfo.id,
                 title: mediaInfo.title,
@@ -225,14 +254,17 @@ export async function POST(request: Request) {
                 posterUrl: mediaInfo.posterUrl,
                 genres: mediaInfo.genres,
                 cardContent: fullContent,
+                comparisons: resolvedComparisons.length > 0 ? resolvedComparisons : null,
                 provider,
               });
 
-              // Send card ID and calibration sentence at the end of the stream
+              // Send card ID, slug, calibration sentence, and comparisons at the end of the stream
               if (savedCard) {
                 const cardInfo = JSON.stringify({
                   id: savedCard.id,
+                  slug: savedCard.slug,
                   calibrationSentence: savedCard.calibrationSentence,
+                  comparisons: savedCard.comparisons,
                 });
                 controller.enqueue(encoder.encode(`__CARD_INFO__${cardInfo}__END_CARD_INFO__`));
               }

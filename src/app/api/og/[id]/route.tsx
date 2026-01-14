@@ -31,22 +31,40 @@ export async function GET(
   const { id } = params;
 
   try {
-    // Fetch card using REST API directly
+    // Fetch card using REST API directly (supports both slug and UUID)
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/cards?id=eq.${id}&select=*`,
+    // First try by slug (with cache busting)
+    let response = await fetch(
+      `${supabaseUrl}/rest/v1/cards?slug=eq.${encodeURIComponent(id)}&select=*`,
       {
         headers: {
           apikey: supabaseKey!,
           Authorization: `Bearer ${supabaseKey}`,
         },
+        cache: 'no-store',
       }
     );
 
-    const data = await response.json();
-    const card = data?.[0];
+    let data = await response.json();
+    let card = data?.[0];
+
+    // If not found by slug, try by UUID
+    if (!card) {
+      response = await fetch(
+        `${supabaseUrl}/rest/v1/cards?id=eq.${id}&select=*`,
+        {
+          headers: {
+            apikey: supabaseKey!,
+            Authorization: `Bearer ${supabaseKey}`,
+          },
+          cache: 'no-store',
+        }
+      );
+      data = await response.json();
+      card = data?.[0];
+    }
 
     if (!card) {
       return new ImageResponse(
@@ -186,7 +204,13 @@ export async function GET(
           </div>
         </div>
       ),
-      { width: 1200, height: 630 }
+      {
+        width: 1200,
+        height: 630,
+        headers: {
+          'Cache-Control': 'public, max-age=3600, s-maxage=3600',
+        },
+      }
     );
   } catch (err) {
     return new ImageResponse(

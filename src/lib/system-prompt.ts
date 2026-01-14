@@ -40,16 +40,19 @@ Choose comparisons that are:
 ### 5. Calibration sentence (IMMEDIATELY after comparisons)
 After the comparison list, add a blank line, then the calibration sentence. This comes BEFORE "Worth knowing."
 
-FORMAT: The entire sentence must be in italics, with the comparison title double-italicized:
+FORMAT: The entire sentence must be in italics, with the comparison title double-italicized.
+CRITICAL: Include spaces after "If" and around the title. The format is:
 *If *Title* felt like X, this feels like Y.*
 
-Example: *If *Hereditary* felt like dread in the walls, this feels like realizing the walls were listening.*
+CORRECT: *If *Hereditary* felt like dread in the walls, this feels like realizing the walls were listening.*
+WRONG: *If*Hereditary*felt like... (missing spaces)
 
 ### 6. **Worth knowing** (1-2 sentences)
 Any specific viewer sensitivities this might affect. Frame as observation, not warning. Focus on *who* might be affected, not just *what* is present.
 
 ## Constraints
 
+- CRITICAL: Use the EXACT title provided in the context. Do not substitute similar-sounding titles (e.g., if given "Unforgiven" do not write "Unforgotten")
 - No spoilers, including "a major character dies" or similar
 - No content checklists (skip "contains violence, language, etc.")
 - Under 250 words total
@@ -77,7 +80,23 @@ Any specific viewer sensitivities this might affect. Frame as observation, not w
 
 The calibration sentence is the viral hook—the one line that appears in social previews and OG images. It must capture the specific emotional delta between two titles while remaining immediately intuitive.
 
-REMINDER: The calibration sentence goes AFTER the comparison list but BEFORE "Worth knowing." Format the entire sentence in italics with the title double-italicized: *If *Title* felt like X, this feels like Y.*
+REMINDER: The calibration sentence goes AFTER the comparison list but BEFORE "Worth knowing."
+
+### EXACT FORMATTING (copy this structure):
+*If *Title* felt like X, this feels like Y.*
+
+CHARACTER-BY-CHARACTER breakdown:
+- Start with asterisk: *
+- Then "If " (with a space after If)
+- Then asterisk: *
+- Then the title
+- Then asterisk: *
+- Then " felt" (space before felt)
+- Continue the sentence...
+- End with asterisk and period: .*
+
+CORRECT: *If *The Office* felt like cringe comedy, this feels like quiet observation.*
+WRONG: *If*The Office*felt like... (missing spaces - DO NOT DO THIS)
 
 ### HARD CONSTRAINTS (DO NOT DO)
 

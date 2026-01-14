@@ -3,15 +3,18 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
 import ShareButton from "@/components/ShareButton";
+import CardContent, { ComparisonData } from "@/components/CardContent";
 
 interface MediaMetadata {
   id?: string;
+  slug?: string;
   title: string;
   year: string;
   posterUrl: string | null;
   mediaType: "movie" | "tv";
   genres: string[];
   calibrationSentence?: string | null;
+  comparisons?: ComparisonData[] | null;
 }
 
 interface SearchResult {
@@ -144,12 +147,14 @@ export default function Home() {
           if (cardInfoMatch) {
             try {
               const cardInfo = JSON.parse(cardInfoMatch[1]);
-              // Update metadata with card ID and calibration sentence
+              // Update metadata with card ID, slug, calibration sentence, and comparisons
               if (currentMetadata) {
                 setMetadata({
                   ...currentMetadata,
                   id: cardInfo.id,
+                  slug: cardInfo.slug,
                   calibrationSentence: cardInfo.calibrationSentence,
+                  comparisons: cardInfo.comparisons || [],
                 });
               }
             } catch {
@@ -227,6 +232,18 @@ export default function Home() {
     generateCard({ tmdbId: result.id, mediaType: result.mediaType, forceProvider: forceProviderRef });
   }, [generateCard, forceProviderRef]);
 
+  // Handle comparison title click - uses TMDB ID if available (skips search/disambiguation)
+  const handleTitleClick = useCallback((clickedTitle: string, tmdbId?: number, mediaType?: "movie" | "tv") => {
+    setTitle(clickedTitle);
+    if (tmdbId && mediaType) {
+      // Have resolved TMDB data - generate directly without search
+      generateCard({ tmdbId, mediaType });
+    } else {
+      // Fallback to search (old behavior)
+      searchTitle(clickedTitle);
+    }
+  }, [generateCard, searchTitle]);
+
   // Keyboard navigation handler
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     // Ignore if composing (IME input)
@@ -255,97 +272,6 @@ export default function Home() {
         break;
     }
   }, [searchResults, highlightIndex, handleSelectResult]);
-
-  // Clickable title link component
-  const TitleLink = ({ title: linkTitle, keyId }: { title: string; keyId: string }) => (
-    <button
-      key={keyId}
-      onClick={() => searchTitle(linkTitle)}
-      className="italic text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 underline decoration-zinc-300 dark:decoration-zinc-600 hover:decoration-zinc-500 dark:hover:decoration-zinc-400 cursor-pointer bg-transparent border-none p-0 font-inherit transition-colors"
-    >
-      {linkTitle}
-    </button>
-  );
-
-  // Markdown renderer with clickable title links
-  const renderMarkdown = useCallback((text: string) => {
-    const formatInline = (str: string, keyPrefix: string): React.ReactNode[] => {
-      const parts = str.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
-      return parts.map((part, j) => {
-        if (part.startsWith("**") && part.endsWith("**")) {
-          return <strong key={`${keyPrefix}-${j}`}>{part.slice(2, -2)}</strong>;
-        }
-        if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
-          const innerText = part.slice(1, -1);
-          return <TitleLink key={`${keyPrefix}-${j}`} title={innerText} keyId={`${keyPrefix}-${j}`} />;
-        }
-        return part;
-      });
-    };
-
-    // Check if line is a calibration sentence: "If [Title] felt [X], this feels/may feel [Y]"
-    const renderCalibrationSentence = (line: string, key: number) => {
-      // Strip outer asterisks and whitespace from the entire line first
-      const cleanLine = line.trim().replace(/^\*+|\*+$/g, '').trim();
-
-      // Match calibration pattern - handle both "this feels" and "this may feel"
-      // Also handle asterisks around title with or without spaces
-      const match = cleanLine.match(/^If\s*\*?(.+?)\*?\s*felt (.+?),\s*this ((?:may )?feel[s]? .+)$/i);
-      if (match) {
-        const [, titlePart, feltPart, feelsPart] = match;
-        // Strip ALL asterisks from title and clean up
-        const cleanTitle = titlePart.replace(/\*/g, '').trim();
-        // Strip trailing period/asterisk from the ending
-        const cleanEnding = feelsPart.replace(/\.*\**$/, '').trim();
-        return (
-          <div key={key} className="mt-4 italic text-zinc-600 dark:text-zinc-400">
-            If <TitleLink title={cleanTitle} keyId={`${key}-cal`} /> felt {feltPart}, this {cleanEnding}
-          </div>
-        );
-      }
-      return null;
-    };
-
-    // Pre-process: fix Gemini's habit of putting "-" on its own line
-    const processedText = text.replace(/^-\s*\n/gm, '- ');
-
-    const lines = processedText.split("\n");
-    return lines.map((line, i) => {
-      // Handle comparison bullets: "- Title → description" or "- *Title* → description"
-      if (line.startsWith("- ")) {
-        const content = line.slice(2);
-        const arrowMatch = content.match(/^(.+?)\s*→\s*(.*)$/);
-
-        if (arrowMatch) {
-          const [, compTitle, description] = arrowMatch;
-          // Strip ALL asterisks from title (handles *Title*, Title*, *Title, etc.)
-          const cleanTitle = compTitle.trim().replace(/\*/g, '');
-          return (
-            <div key={i} className="flex gap-2 ml-2">
-              <span>-</span>
-              <span>
-                <TitleLink title={cleanTitle} keyId={`${i}-title`} />
-                <span> → {description}</span>
-              </span>
-            </div>
-          );
-        }
-
-        return (
-          <div key={i} className="flex gap-2 ml-2">
-            <span>-</span>
-            <span>{formatInline(content, `${i}`)}</span>
-          </div>
-        );
-      }
-
-      // Check for calibration sentence
-      const calibration = renderCalibrationSentence(line, i);
-      if (calibration) return calibration;
-
-      return <div key={i}>{formatInline(line, `${i}`)}</div>;
-    });
-  }, [searchTitle]);
 
   const handleSubmit = (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault();
@@ -472,7 +398,7 @@ export default function Home() {
               {metadata?.id && (
                 <div className="absolute top-4 right-4">
                   <ShareButton
-                    url={`${typeof window !== 'undefined' ? window.location.origin : ''}/card/${metadata.id}`}
+                    url={`${typeof window !== 'undefined' ? window.location.origin : ''}/card/${metadata.slug || metadata.id}`}
                     title={metadata.title}
                     calibrationSentence={metadata.calibrationSentence || null}
                   />
@@ -516,7 +442,11 @@ export default function Home() {
               )}
               {card && (
                 <div className={metadata ? "border-t border-zinc-100 pt-5 dark:border-zinc-800" : ""}>
-                  <div className="space-y-1">{renderMarkdown(card)}</div>
+                  <CardContent
+                    content={card}
+                    comparisons={metadata?.comparisons}
+                    onTitleClick={handleTitleClick}
+                  />
                 </div>
               )}
             </div>

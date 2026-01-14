@@ -203,6 +203,52 @@ export async function searchMedia(query: string): Promise<MediaInfo | null> {
   };
 }
 
+// Resolve a comparison title to TMDB ID - returns best match
+export interface ResolvedComparison {
+  title: string;
+  tmdb_id: number;
+  media_type: "movie" | "tv";
+  year: string;
+}
+
+export async function resolveComparisonTitle(title: string): Promise<ResolvedComparison | null> {
+  try {
+    const encoded = encodeURIComponent(title);
+    const searchResponse = await tmdbFetch<TMDBSearchResponse>(
+      `/search/multi?query=${encoded}&include_adult=false&language=en-US&page=1`
+    );
+
+    const results = searchResponse.results
+      .filter((r) => r.media_type === "movie" || r.media_type === "tv");
+
+    if (results.length === 0) {
+      return null;
+    }
+
+    // Prioritize exact title match, then by popularity (vote_average as proxy)
+    const normalizedTitle = title.toLowerCase().trim();
+    const exactMatch = results.find((r) => {
+      const resultTitle = (r.title || r.name || "").toLowerCase().trim();
+      return resultTitle === normalizedTitle;
+    });
+
+    const bestMatch = exactMatch || results[0];
+
+    const releaseDate = bestMatch.release_date || bestMatch.first_air_date;
+    const year = releaseDate ? releaseDate.split("-")[0] : "Unknown";
+
+    return {
+      title: bestMatch.title || bestMatch.name || title,
+      tmdb_id: bestMatch.id,
+      media_type: bestMatch.media_type,
+      year,
+    };
+  } catch (error) {
+    console.error(`Failed to resolve comparison title "${title}":`, error);
+    return null;
+  }
+}
+
 export function formatContextForClaude(media: MediaInfo): string {
   const lines: string[] = [
     `Title: ${media.title} (${media.year})`,

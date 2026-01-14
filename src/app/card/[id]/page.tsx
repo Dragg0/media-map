@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Image from "next/image";
-import { getCardById } from "@/lib/supabase";
+import { getCardBySlugOrId } from "@/lib/supabase";
 import ShareButton from "@/components/ShareButton";
 import CardContent from "@/components/CardContent";
 
@@ -11,7 +11,7 @@ interface PageProps {
 
 // Generate dynamic metadata for OG tags
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const card = await getCardById(params.id);
+  const card = await getCardBySlugOrId(params.id);
 
   if (!card) {
     return {
@@ -20,7 +20,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const description = card.calibration_sentence || "Know what it's like before you watch.";
-  const ogImageUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://texture.watch"}/api/og/${params.id}`;
+  // Use slug for OG image URL if available, fallback to id
+  const cardIdentifier = card.slug || card.id;
+  const ogImageUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://texture.watch"}/api/og/${cardIdentifier}`;
 
   return {
     title: `${card.title} | Texture`,
@@ -41,21 +43,27 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     },
     twitter: {
       card: "summary_large_image",
+      site: "@texturewatch",
       title: `${card.title} | Texture`,
       description,
-      images: [ogImageUrl],
+      images: {
+        url: ogImageUrl,
+        alt: `Emotional calibration card for ${card.title}`,
+      },
     },
   };
 }
 
 export default async function CardPage({ params }: PageProps) {
-  const card = await getCardById(params.id);
+  const card = await getCardBySlugOrId(params.id);
 
   if (!card) {
     notFound();
   }
 
-  const cardUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://texture.watch"}/card/${params.id}`;
+  // Use slug for URL if available, fallback to id
+  const cardIdentifier = card.slug || card.id;
+  const cardUrl = `${process.env.NEXT_PUBLIC_BASE_URL || "https://texture.watch"}/card/${cardIdentifier}`;
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -119,7 +127,7 @@ export default async function CardPage({ params }: PageProps) {
 
             {/* Card Content */}
             <div className="border-t border-zinc-100 pt-5 dark:border-zinc-800">
-              <CardContent content={card.card_content} />
+              <CardContent content={card.card_content} comparisons={card.comparisons} />
             </div>
           </div>
         </article>
