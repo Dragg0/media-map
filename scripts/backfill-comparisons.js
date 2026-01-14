@@ -14,7 +14,8 @@ const TMDB_TOKEN = process.env.TMDB_API_TOKEN;
 
 function parseComparisons(cardContent) {
   const comparisons = [];
-  const pattern = /^-\s*\*?([^*→\->]+?)\*?\s*(?:→|->)\s*(.+)$/gm;
+  // Handle both - and * bullets, and both → and -> arrows
+  const pattern = /^[-*]\s+\*?([^*→\->]+?)\*?\s*(?:→|->)\s*(.+)$/gm;
   let match;
   while ((match = pattern.exec(cardContent)) !== null) {
     const title = match[1].trim();

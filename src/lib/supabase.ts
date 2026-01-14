@@ -44,7 +44,7 @@ export function generateSlug(title: string, year: string | null): string {
 }
 
 // Parse comparison titles and phrases from card content markdown
-// Patterns: "- Title → phrase" or "- *Title* → phrase" or "- Title -> phrase"
+// Patterns: "- Title → phrase" or "* Title → phrase" or "- *Title* → phrase"
 export interface ParsedComparison {
   title: string;
   phrase: string;
@@ -53,9 +53,9 @@ export interface ParsedComparison {
 export function parseComparisons(cardContent: string): ParsedComparison[] {
   const comparisons: ParsedComparison[] = [];
 
-  // Match lines like: "- Title → phrase" or "- *Title* → phrase"
-  // Handle both → and -> arrows
-  const pattern = /^-\s*\*?([^*→\->]+?)\*?\s*(?:→|->)\s*(.+)$/gm;
+  // Match lines like: "- Title → phrase" or "* Title → phrase" or "- *Title* → phrase"
+  // Handle both - and * bullets, and both → and -> arrows
+  const pattern = /^[-*]\s+\*?([^*→\->]+?)\*?\s*(?:→|->)\s*(.+)$/gm;
 
   let match;
   while ((match = pattern.exec(cardContent)) !== null) {
