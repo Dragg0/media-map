@@ -2,6 +2,20 @@ import { NextResponse } from "next/server";
 import { TwitterApi } from "twitter-api-v2";
 import { createClient } from "@supabase/supabase-js";
 
+// Slot types for different times of day
+type PostSlot = "morning" | "afternoon" | "evening";
+
+// Prestige genres for evening slot
+const PRESTIGE_GENRES = [
+  "Drama",
+  "Crime",
+  "Thriller",
+  "Mystery",
+  "War",
+  "History",
+  "Documentary",
+];
+
 // Lazy initialization to avoid build-time errors
 function getSupabase() {
   return createClient(
@@ -68,6 +82,11 @@ export async function GET(request: Request) {
   try {
     const supabase = getSupabase();
 
+    // Parse slot from query params (default to afternoon for backwards compatibility)
+    const url = new URL(request.url);
+    const slot = (url.searchParams.get("slot") as PostSlot) || "afternoon";
+    console.log(`Posting for slot: ${slot}`);
+
     // Get cards that have calibration sentences and haven't been posted in 30 days
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -78,16 +97,42 @@ export async function GET(request: Request) {
       .not("calibration_sentence", "is", null)
       .not("slug", "is", null)
       .or(`last_posted_at.is.null,last_posted_at.lt.${thirtyDaysAgo.toISOString()}`)
-      .limit(20);
+      .limit(50); // Fetch more to have variety for filtering
 
     if (error || !cards || cards.length === 0) {
       console.log("No eligible cards found");
       return NextResponse.json({ message: "No eligible cards to post" });
     }
 
+    // Filter cards based on slot
+    let filteredCards = cards;
+
+    if (slot === "morning") {
+      // Morning: Classic titles (released before 2015)
+      filteredCards = cards.filter((card) => {
+        const year = parseInt(card.year);
+        return !isNaN(year) && year < 2015;
+      });
+      console.log(`Morning slot: ${filteredCards.length} classic titles found`);
+    } else if (slot === "evening") {
+      // Evening: Prestige genres (Drama, Crime, Thriller, etc.)
+      filteredCards = cards.filter((card) => {
+        const genres = card.genres || [];
+        return genres.some((g: string) => PRESTIGE_GENRES.includes(g));
+      });
+      console.log(`Evening slot: ${filteredCards.length} prestige titles found`);
+    }
+    // Afternoon: Use all cards (popularity-based selection)
+
+    // Fall back to all cards if slot filter yields nothing
+    if (filteredCards.length === 0) {
+      console.log(`No cards for ${slot} slot, falling back to all eligible cards`);
+      filteredCards = cards;
+    }
+
     // Get popularity scores and pick the most popular
     const cardsWithPopularity = await Promise.all(
-      cards.map(async (card) => {
+      filteredCards.map(async (card) => {
         const popularity = card.tmdb_id
           ? await getTmdbPopularity(card.tmdb_id, card.media_type)
           : 0;
@@ -151,6 +196,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
+      slot,
       title: selectedCard.title,
       tweetId: tweet.data.id,
       imageAttached: !!mediaId,
