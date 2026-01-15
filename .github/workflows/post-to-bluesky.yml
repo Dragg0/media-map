@@ -1,0 +1,58 @@
+name: Post to Bluesky
+
+on:
+  schedule:
+    # Morning - Classic/Throwback (10am UTC = 5am EST / 2am PST)
+    - cron: '0 10 * * *'
+    # Afternoon - Popular (5pm UTC = 12pm EST / 9am PST)
+    - cron: '0 17 * * *'
+    # Evening - Prestige (9pm UTC = 4pm EST / 1pm PST)
+    - cron: '0 21 * * *'
+  workflow_dispatch:
+    inputs:
+      slot:
+        description: 'Which slot to post (morning, afternoon, evening)'
+        required: true
+        default: 'afternoon'
+        type: choice
+        options:
+          - morning
+          - afternoon
+          - evening
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine slot from schedule
+        id: slot
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "slot=${{ inputs.slot }}" >> $GITHUB_OUTPUT
+          else
+            HOUR=$(date -u +%H)
+            if [ "$HOUR" = "10" ]; then
+              echo "slot=morning" >> $GITHUB_OUTPUT
+            elif [ "$HOUR" = "17" ]; then
+              echo "slot=afternoon" >> $GITHUB_OUTPUT
+            else
+              echo "slot=evening" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Post to Bluesky
+        run: |
+          response=$(curl -s -w "\n%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://texture.watch/api/cron/post-to-bluesky?slot=${{ steps.slot.outputs.slot }}")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "Request failed with status $http_code"
+            exit 1
+          fi
