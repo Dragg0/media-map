@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { TwitterApi } from "twitter-api-v2";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY! // Need service role to update last_posted_at
-);
-
-const TMDB_TOKEN = process.env.TMDB_API_TOKEN;
+// Lazy initialization to avoid build-time errors
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY! // Need service role to update last_posted_at
+  );
+}
 
 // Verify this is a legitimate cron request
 function verifyCronRequest(request: Request): boolean {
@@ -28,7 +29,7 @@ async function getTmdbPopularity(tmdbId: number, mediaType: string): Promise<num
   try {
     const res = await fetch(
       `https://api.themoviedb.org/3/${mediaType}/${tmdbId}`,
-      { headers: { Authorization: `Bearer ${TMDB_TOKEN}` } }
+      { headers: { Authorization: `Bearer ${process.env.TMDB_API_TOKEN}` } }
     );
     const data = await res.json();
     return data.popularity || 0;
@@ -44,6 +45,8 @@ export async function GET(request: Request) {
   }
 
   try {
+    const supabase = getSupabase();
+
     // Get cards that have calibration sentences and haven't been posted in 30 days
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
