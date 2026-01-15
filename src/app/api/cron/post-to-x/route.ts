@@ -10,6 +10,27 @@ function getSupabase() {
   );
 }
 
+// Fetch OG image as Buffer for Twitter upload
+async function fetchOgImageBuffer(slug: string): Promise<Buffer | null> {
+  try {
+    const ogImageUrl = `https://texture.watch/api/og/${slug}`;
+    console.log(`Fetching OG image: ${ogImageUrl}`);
+
+    const response = await fetch(ogImageUrl, { cache: "no-store" });
+
+    if (!response.ok) {
+      console.error(`OG image fetch failed: ${response.status}`);
+      return null;
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  } catch (error) {
+    console.error("Failed to fetch OG image:", error);
+    return null;
+  }
+}
+
 // Verify this is a legitimate cron request
 function verifyCronRequest(request: Request): boolean {
   const authHeader = request.headers.get("authorization");
@@ -90,13 +111,37 @@ export async function GET(request: Request) {
       accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET!,
     });
 
-    // Compose the tweet - just the calibration sentence and URL
-    // X will automatically show the OG card
+    // Compose the tweet text
     const cardUrl = `https://texture.watch/card/${selectedCard.slug}`;
     const tweetText = `${selectedCard.calibration_sentence}\n\n${cardUrl}`;
 
-    // Post to X
-    const tweet = await twitterClient.v2.tweet(tweetText);
+    // Try to fetch and upload OG image
+    let mediaId: string | null = null;
+    const imageBuffer = await fetchOgImageBuffer(selectedCard.slug);
+
+    if (imageBuffer) {
+      try {
+        console.log(`Uploading image to Twitter (${imageBuffer.length} bytes)`);
+        mediaId = await twitterClient.v1.uploadMedia(imageBuffer, {
+          mimeType: "image/png",
+        });
+        console.log(`Image uploaded successfully: ${mediaId}`);
+      } catch (uploadError) {
+        console.error("Failed to upload image to Twitter:", uploadError);
+        // Continue without image - fallback to URL-only
+      }
+    }
+
+    // Post to X (with media if available, URL-only as fallback)
+    const tweet = mediaId
+      ? await twitterClient.v2.tweet(tweetText, {
+          media: { media_ids: [mediaId] },
+        })
+      : await twitterClient.v2.tweet(tweetText);
+
+    console.log(
+      `Posted tweet for "${selectedCard.title}": ${tweet.data.id}${mediaId ? " (with image)" : " (URL-only fallback)"}`
+    );
 
     // Update last_posted_at
     await supabase
@@ -104,12 +149,11 @@ export async function GET(request: Request) {
       .update({ last_posted_at: new Date().toISOString() })
       .eq("id", selectedCard.id);
 
-    console.log(`Posted tweet for "${selectedCard.title}": ${tweet.data.id}`);
-
     return NextResponse.json({
       success: true,
       title: selectedCard.title,
       tweetId: tweet.data.id,
+      imageAttached: !!mediaId,
     });
   } catch (error) {
     console.error("Failed to post to X:", error);
