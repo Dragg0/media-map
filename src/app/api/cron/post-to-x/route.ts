@@ -188,11 +188,30 @@ export async function GET(request: Request) {
       `Posted tweet for "${selectedCard.title}": ${tweet.data.id}${mediaId ? " (with image)" : " (URL-only fallback)"}`
     );
 
-    // Update last_posted_at
+    // Update last_posted_at on the card
     await supabase
       .from("cards")
       .update({ last_posted_at: new Date().toISOString() })
       .eq("id", selectedCard.id);
+
+    // Log the post to the posts table for /editions archive
+    const { error: postLogError } = await supabase.from("posts").insert({
+      card_id: selectedCard.id,
+      slot,
+      tweet_id: tweet.data.id,
+      posted_at: new Date().toISOString(),
+      // Snapshot fields - capture what was actually posted
+      title: selectedCard.title,
+      slug: selectedCard.slug,
+      calibration_sentence: selectedCard.calibration_sentence,
+      year: selectedCard.year,
+      poster_url: selectedCard.poster_url,
+    });
+
+    if (postLogError) {
+      // Log but don't fail - the tweet was already posted
+      console.error("Failed to log post:", postLogError);
+    }
 
     return NextResponse.json({
       success: true,
