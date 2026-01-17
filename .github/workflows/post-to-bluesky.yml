@@ -2,12 +2,12 @@ name: Post to Bluesky
 
 on:
   schedule:
-    # Morning - Classic/Throwback (10am UTC = 5am EST / 2am PST)
-    - cron: '0 10 * * *'
-    # Afternoon - Popular (5pm UTC = 12pm EST / 9am PST)
-    - cron: '0 17 * * *'
-    # Evening - Prestige (9pm UTC = 4pm EST / 1pm PST)
-    - cron: '0 21 * * *'
+    # Morning - Classic/Throwback (3pm UTC = 10am EST / 8am MT / 7am PST)
+    - cron: '0 15 * * *'
+    # Afternoon - Popular (6pm UTC = 1pm EST / 11am MT / 10am PST)
+    - cron: '0 18 * * *'
+    # Evening - Prestige (1am UTC = 8pm EST / 6pm MT / 5pm PST)
+    - cron: '0 1 * * *'
   workflow_dispatch:
     inputs:
       slot:
@@ -31,9 +31,9 @@ jobs:
             echo "slot=${{ inputs.slot }}" >> $GITHUB_OUTPUT
           else
             HOUR=$(date -u +%H)
-            if [ "$HOUR" = "10" ]; then
+            if [ "$HOUR" = "15" ]; then
               echo "slot=morning" >> $GITHUB_OUTPUT
-            elif [ "$HOUR" = "17" ]; then
+            elif [ "$HOUR" = "18" ]; then
               echo "slot=afternoon" >> $GITHUB_OUTPUT
             else
               echo "slot=evening" >> $GITHUB_OUTPUT
