@@ -167,7 +167,7 @@ export async function GET(request: Request) {
 
     // Compose the post text
     const cardUrl = `https://texture.watch/card/${selectedCard.slug}`;
-    const postText = `${selectedCard.calibration_sentence}\n\n${cardUrl}`;
+    const postText = `${selectedCard.calibration_sentence}\n\n${cardUrl}\n\n#NowWatching`;
 
     // Create rich text with link facets
     const rt = new RichText({ text: postText });

@@ -158,7 +158,7 @@ export async function GET(request: Request) {
 
     // Compose the tweet text
     const cardUrl = `https://texture.watch/card/${selectedCard.slug}`;
-    const tweetText = `${selectedCard.calibration_sentence}\n\n${cardUrl}`;
+    const tweetText = `${selectedCard.calibration_sentence}\n\n${cardUrl}\n\n#NowWatching`;
 
     // Try to fetch and upload OG image
     let mediaId: string | null = null;
