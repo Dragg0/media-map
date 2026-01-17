@@ -95,7 +95,9 @@ export async function GET(
     const genreDisplay = card.genres?.[0] || "";
     const typeDisplay = card.media_type === "tv" ? "TV Series" : "Film";
     const metaLine = [card.year, typeDisplay, genreDisplay].filter(Boolean).join(" · ");
-    const calibrationSentence = card.calibration_sentence || "Know what it is like before you watch.";
+    // Strip markdown bold markers for OG display
+    const rawSentence = card.calibration_sentence || "Know what it is like before you watch.";
+    const calibrationSentence = rawSentence.replace(/\*\*/g, "");
 
     return new ImageResponse(
       (
