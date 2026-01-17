@@ -243,12 +243,26 @@ export async function GET(request: Request) {
       console.error("Failed to log post:", postLogError);
     }
 
-    // Update pending post status if there was one
+    // Mark that Twitter has posted (don't change status yet - Bluesky may still need it)
     if (pendingPostId) {
       await supabase
         .from("pending_posts")
-        .update({ status: "posted" })
+        .update({ posted_to_x: true })
         .eq("id", pendingPostId);
+
+      // Check if both platforms have posted, then mark as fully posted
+      const { data: updatedPending } = await supabase
+        .from("pending_posts")
+        .select("posted_to_x, posted_to_bluesky")
+        .eq("id", pendingPostId)
+        .single();
+
+      if (updatedPending?.posted_to_x && updatedPending?.posted_to_bluesky) {
+        await supabase
+          .from("pending_posts")
+          .update({ status: "posted" })
+          .eq("id", pendingPostId);
+      }
     }
 
     return NextResponse.json({
