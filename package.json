@@ -19,6 +19,7 @@
     "next": "14.2.15",
     "react": "^18",
     "react-dom": "^18",
+    "resend": "^6.7.0",
     "twitter-api-v2": "^1.29.0"
   },
   "devDependencies": {

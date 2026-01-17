@@ -89,66 +89,100 @@ export async function GET(request: Request) {
     const slot = (url.searchParams.get("slot") as PostSlot) || "afternoon";
     console.log(`[Bluesky] Posting for slot: ${slot}`);
 
-    // Get cards that have calibration sentences and haven't been posted in 30 days
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // Check for approved pending post first
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const { data: cards, error } = await supabase
-      .from("cards")
-      .select("*")
-      .not("calibration_sentence", "is", null)
-      .not("slug", "is", null)
-      .or(
-        `last_posted_bluesky.is.null,last_posted_bluesky.lt.${thirtyDaysAgo.toISOString()}`
-      )
-      .limit(50);
+    const { data: pendingPost } = await supabase
+      .from("pending_posts")
+      .select("*, cards:selected_card_id(*)")
+      .eq("slot", slot)
+      .in("status", ["approved", "pending"])
+      .gte("scheduled_for", today.toISOString())
+      .lt("scheduled_for", tomorrow.toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
 
-    if (error || !cards || cards.length === 0) {
-      console.log("[Bluesky] No eligible cards found");
-      return NextResponse.json({ message: "No eligible cards to post" });
-    }
+    let selectedCard;
+    let pendingPostId: string | null = null;
 
-    // Filter cards based on slot
-    let filteredCards = cards;
+    if (pendingPost?.cards && pendingPost.status === "approved") {
+      // Use the approved card
+      selectedCard = pendingPost.cards;
+      pendingPostId = pendingPost.id;
+      console.log(`[Bluesky] Using approved card: ${selectedCard.title}`);
+    } else {
+      // Fall back to auto-selection (default behavior: post anyway)
+      console.log("[Bluesky] No approved pending post, using auto-selection");
 
-    if (slot === "morning") {
-      filteredCards = cards.filter((card) => {
-        const year = parseInt(card.year);
-        return !isNaN(year) && year < 2015;
-      });
-      console.log(
-        `[Bluesky] Morning slot: ${filteredCards.length} classic titles found`
+      // Get cards that have calibration sentences and haven't been posted in 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const { data: cards, error } = await supabase
+        .from("cards")
+        .select("*")
+        .not("calibration_sentence", "is", null)
+        .not("slug", "is", null)
+        .or(
+          `last_posted_bluesky.is.null,last_posted_bluesky.lt.${thirtyDaysAgo.toISOString()}`
+        )
+        .limit(50);
+
+      if (error || !cards || cards.length === 0) {
+        console.log("[Bluesky] No eligible cards found");
+        return NextResponse.json({ message: "No eligible cards to post" });
+      }
+
+      // Filter cards based on slot
+      let filteredCards = cards;
+
+      if (slot === "morning") {
+        filteredCards = cards.filter((card) => {
+          const year = parseInt(card.year);
+          return !isNaN(year) && year < 2015;
+        });
+        console.log(
+          `[Bluesky] Morning slot: ${filteredCards.length} classic titles found`
+        );
+      } else if (slot === "evening") {
+        filteredCards = cards.filter((card) => {
+          const genres = card.genres || [];
+          return genres.some((g: string) => PRESTIGE_GENRES.includes(g));
+        });
+        console.log(
+          `[Bluesky] Evening slot: ${filteredCards.length} prestige titles found`
+        );
+      }
+
+      if (filteredCards.length === 0) {
+        console.log(
+          `[Bluesky] No cards for ${slot} slot, falling back to all eligible cards`
+        );
+        filteredCards = cards;
+      }
+
+      // Get popularity scores and pick the most popular
+      const cardsWithPopularity = await Promise.all(
+        filteredCards.map(async (card) => {
+          const popularity = card.tmdb_id
+            ? await getTmdbPopularity(card.tmdb_id, card.media_type)
+            : 0;
+          return { ...card, popularity };
+        })
       );
-    } else if (slot === "evening") {
-      filteredCards = cards.filter((card) => {
-        const genres = card.genres || [];
-        return genres.some((g: string) => PRESTIGE_GENRES.includes(g));
-      });
-      console.log(
-        `[Bluesky] Evening slot: ${filteredCards.length} prestige titles found`
-      );
+
+      cardsWithPopularity.sort((a, b) => b.popularity - a.popularity);
+      selectedCard = cardsWithPopularity[0];
+
+      // If there was a pending post (not approved), track its ID
+      if (pendingPost) {
+        pendingPostId = pendingPost.id;
+      }
     }
-
-    // Fall back to all cards if slot filter yields nothing
-    if (filteredCards.length === 0) {
-      console.log(
-        `[Bluesky] No cards for ${slot} slot, falling back to all eligible cards`
-      );
-      filteredCards = cards;
-    }
-
-    // Get popularity scores and pick the most popular
-    const cardsWithPopularity = await Promise.all(
-      filteredCards.map(async (card) => {
-        const popularity = card.tmdb_id
-          ? await getTmdbPopularity(card.tmdb_id, card.media_type)
-          : 0;
-        return { ...card, popularity };
-      })
-    );
-
-    cardsWithPopularity.sort((a, b) => b.popularity - a.popularity);
-    const selectedCard = cardsWithPopularity[0];
 
     if (!selectedCard) {
       return NextResponse.json({ message: "No card selected" });
@@ -238,6 +272,14 @@ export async function GET(request: Request) {
 
     if (postLogError) {
       console.error("[Bluesky] Failed to log post:", postLogError);
+    }
+
+    // Update pending post status if there was one
+    if (pendingPostId) {
+      await supabase
+        .from("pending_posts")
+        .update({ status: "posted" })
+        .eq("id", pendingPostId);
     }
 
     return NextResponse.json({
