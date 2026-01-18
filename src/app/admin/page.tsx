@@ -64,6 +64,8 @@ export default function AdminPage() {
   const [discoveredPosts, setDiscoveredPosts] = useState<DiscoveredPost[]>([]);
   const [discoverLoading, setDiscoverLoading] = useState(false);
   const [discovering, setDiscovering] = useState(false);
+  const [quoteSuggestions, setQuoteSuggestions] = useState<Record<string, string[]>>({});
+  const [generatingQuote, setGeneratingQuote] = useState<string | null>(null);
 
   // Shared state
   const [regenerating, setRegenerating] = useState(false);
@@ -174,10 +176,46 @@ export default function AdminPage() {
 
       if (res.ok) {
         setDiscoveredPosts(posts => posts.filter(p => p.id !== postId));
+        setQuoteSuggestions(prev => {
+          const next = { ...prev };
+          delete next[postId];
+          return next;
+        });
       }
     } catch (error) {
       console.error("Failed to update post:", error);
     }
+  };
+
+  const generateQuoteSuggestion = async (post: DiscoveredPost) => {
+    setGeneratingQuote(post.id);
+    try {
+      const res = await fetch("/api/admin/discover", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "suggest_quote",
+          content: post.content,
+          detected_title: post.detected_title,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setQuoteSuggestions(prev => ({
+          ...prev,
+          [post.id]: data.suggestions || [],
+        }));
+      }
+    } catch (error) {
+      console.error("Failed to generate quote:", error);
+    } finally {
+      setGeneratingQuote(null);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -873,8 +911,26 @@ export default function AdminPage() {
                       {post.content}
                     </p>
 
+                    {/* Quote suggestions */}
+                    {quoteSuggestions[post.id] && quoteSuggestions[post.id].length > 0 && (
+                      <div className="bg-zinc-800 rounded-lg p-3 space-y-2">
+                        <div className="text-zinc-400 text-xs">Click to copy:</div>
+                        <div className="flex flex-wrap gap-2">
+                          {quoteSuggestions[post.id].map((suggestion, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => copyToClipboard(suggestion)}
+                              className="bg-zinc-700 hover:bg-zinc-600 text-white px-3 py-1.5 rounded text-sm transition-colors"
+                            >
+                              {suggestion}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Actions */}
-                    <div className="flex gap-2 pt-2">
+                    <div className="flex flex-wrap gap-2 pt-2">
                       <a
                         href={post.post_url}
                         target="_blank"
@@ -884,16 +940,23 @@ export default function AdminPage() {
                         Open in Bluesky
                       </a>
                       <button
+                        onClick={() => generateQuoteSuggestion(post)}
+                        disabled={generatingQuote === post.id}
+                        className="bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                      >
+                        {generatingQuote === post.id ? "..." : "Suggest Quote"}
+                      </button>
+                      <button
                         onClick={() => handleDiscoveredPostAction(post.id, "liked")}
                         className="bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-lg text-sm transition-colors"
                       >
-                        Mark Liked
+                        Liked
                       </button>
                       <button
                         onClick={() => handleDiscoveredPostAction(post.id, "quoted")}
                         className="bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-lg text-sm transition-colors"
                       >
-                        Mark Quoted
+                        Quoted
                       </button>
                       <button
                         onClick={() => handleDiscoveredPostAction(post.id, "dismissed")}

@@ -260,13 +260,48 @@ Be strict - when in doubt, mark as not relevant.`
   }
 }
 
-// PATCH: Update post status (liked, quoted, dismissed)
+// PATCH: Update post status OR generate quote suggestion
 export async function PATCH(request: Request) {
   if (!(await verifyAdmin())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id, status } = await request.json();
+  const body = await request.json();
+
+  // Generate quote suggestion
+  if (body.action === "suggest_quote") {
+    const { content, detected_title } = body;
+
+    const anthropic = new Anthropic();
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 100,
+      messages: [{
+        role: "user",
+        content: `You're the social media voice for Texture, a site that helps people understand how movies/TV shows FEEL before watching.
+
+Someone posted this about ${detected_title || "a movie/show"}:
+"${content}"
+
+Generate 3 very short quote-repost options (1-6 words each) that Texture could use. These should:
+- Affirm/amplify their take
+- Sound natural, not corporate
+- Match the energy of their post
+
+Examples of good quotes: "This is exactly it." / "Calibration sentence material." / "Yes." / "The way this lands." / "Perfectly put."
+
+Respond with just the 3 options, one per line, no numbering.`
+      }]
+    });
+
+    const text = response.content[0].type === 'text' ? response.content[0].text : '';
+    const suggestions = text.split('\n').filter(line => line.trim()).slice(0, 3);
+
+    return NextResponse.json({ suggestions });
+  }
+
+  // Update status
+  const { id, status } = body;
 
   if (!id || !status) {
     return NextResponse.json({ error: "Missing id or status" }, { status: 400 });
