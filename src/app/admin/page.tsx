@@ -23,7 +23,22 @@ interface PendingPost {
   alternative_cards: Card[];
 }
 
-type Tab = "pending" | "cards";
+interface DiscoveredPost {
+  id: string;
+  platform: string;
+  post_uri: string;
+  post_url: string;
+  author_handle: string;
+  author_display_name: string | null;
+  content: string;
+  detected_title: string | null;
+  relevance_score: number;
+  status: "pending" | "liked" | "quoted" | "dismissed";
+  search_phrase: string | null;
+  discovered_at: string;
+}
+
+type Tab = "pending" | "cards" | "discover";
 
 export default function AdminPage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -43,6 +58,11 @@ export default function AdminPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [cardsLoading, setCardsLoading] = useState(false);
+
+  // Discover state
+  const [discoveredPosts, setDiscoveredPosts] = useState<DiscoveredPost[]>([]);
+  const [discoverLoading, setDiscoverLoading] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
 
   // Shared state
   const [regenerating, setRegenerating] = useState(false);
@@ -104,6 +124,60 @@ export default function AdminPage() {
       fetchCards();
     }
   }, [activeTab, cards.length]);
+
+  // Fetch discovered posts when switching to discover tab
+  useEffect(() => {
+    if (activeTab === "discover" && discoveredPosts.length === 0) {
+      fetchDiscoveredPosts();
+    }
+  }, [activeTab, discoveredPosts.length]);
+
+  const fetchDiscoveredPosts = async () => {
+    setDiscoverLoading(true);
+    try {
+      const res = await fetch("/api/admin/discover");
+      if (res.ok) {
+        const data = await res.json();
+        setDiscoveredPosts(data.posts || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch discovered posts:", error);
+    } finally {
+      setDiscoverLoading(false);
+    }
+  };
+
+  const runDiscovery = async () => {
+    setDiscovering(true);
+    try {
+      const res = await fetch("/api/admin/discover", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        console.log("Discovery results:", data);
+        fetchDiscoveredPosts();
+      }
+    } catch (error) {
+      console.error("Discovery failed:", error);
+    } finally {
+      setDiscovering(false);
+    }
+  };
+
+  const handleDiscoveredPostAction = async (postId: string, status: "liked" | "quoted" | "dismissed") => {
+    try {
+      const res = await fetch("/api/admin/discover", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: postId, status }),
+      });
+
+      if (res.ok) {
+        setDiscoveredPosts(posts => posts.filter(p => p.id !== postId));
+      }
+    } catch (error) {
+      console.error("Failed to update post:", error);
+    }
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -395,6 +469,19 @@ export default function AdminPage() {
             }`}
           >
             All Cards
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab("discover");
+              setGeneratedSentences([]);
+            }}
+            className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === "discover"
+                ? "border-white text-white"
+                : "border-transparent text-zinc-500 hover:text-zinc-300"
+            }`}
+          >
+            Discover
           </button>
         </div>
       </div>
@@ -705,6 +792,97 @@ export default function AdminPage() {
                     </button>
                   ))
                 )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* DISCOVER TAB */}
+        {activeTab === "discover" && (
+          <div className="space-y-6">
+            {/* Run Discovery Button */}
+            <div className="flex items-center justify-between">
+              <p className="text-zinc-400 text-sm">
+                Find posts describing how movies/shows feel to watch
+              </p>
+              <button
+                onClick={runDiscovery}
+                disabled={discovering}
+                className="bg-white hover:bg-zinc-100 text-zinc-900 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+              >
+                {discovering ? "Searching..." : "Run Discovery"}
+              </button>
+            </div>
+
+            {discoverLoading ? (
+              <div className="text-center py-12 text-zinc-500">Loading...</div>
+            ) : discoveredPosts.length === 0 ? (
+              <div className="text-center py-12 text-zinc-500">
+                No posts to review. Click &quot;Run Discovery&quot; to search Bluesky.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {discoveredPosts.map((post) => (
+                  <div
+                    key={post.id}
+                    className="bg-zinc-900 rounded-xl p-4 space-y-3"
+                  >
+                    {/* Author and title */}
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <span className="text-white font-medium">
+                          {post.author_display_name || post.author_handle}
+                        </span>
+                        <span className="text-zinc-500 text-sm ml-2">
+                          @{post.author_handle}
+                        </span>
+                        {post.detected_title && (
+                          <span className="ml-2 bg-zinc-800 text-zinc-300 text-xs px-2 py-1 rounded">
+                            {post.detected_title}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-zinc-600 text-xs">
+                        {Math.round(post.relevance_score * 100)}% relevant
+                      </span>
+                    </div>
+
+                    {/* Content */}
+                    <p className="text-zinc-300 text-sm whitespace-pre-wrap">
+                      {post.content}
+                    </p>
+
+                    {/* Actions */}
+                    <div className="flex gap-2 pt-2">
+                      <a
+                        href={post.post_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        Open in Bluesky
+                      </a>
+                      <button
+                        onClick={() => handleDiscoveredPostAction(post.id, "liked")}
+                        className="bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-lg text-sm transition-colors"
+                      >
+                        Mark Liked
+                      </button>
+                      <button
+                        onClick={() => handleDiscoveredPostAction(post.id, "quoted")}
+                        className="bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-lg text-sm transition-colors"
+                      >
+                        Mark Quoted
+                      </button>
+                      <button
+                        onClick={() => handleDiscoveredPostAction(post.id, "dismissed")}
+                        className="bg-zinc-800 hover:bg-zinc-700 text-zinc-400 px-3 py-1.5 rounded-lg text-sm transition-colors"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
