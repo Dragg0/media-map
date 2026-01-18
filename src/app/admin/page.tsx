@@ -36,6 +36,7 @@ interface DiscoveredPost {
   status: "pending" | "liked" | "quoted" | "dismissed";
   search_phrase: string | null;
   discovered_at: string;
+  posted_at: string | null;
 }
 
 type Tab = "pending" | "cards" | "discover";
@@ -377,6 +378,21 @@ export default function AdminPage() {
     morning: "Morning (Classic)",
     afternoon: "Afternoon (Popular)",
     evening: "Evening (Prestige)",
+  };
+
+  const formatRelativeTime = (isoString: string | null) => {
+    if (!isoString) return "";
+    const date = new Date(isoString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
   };
 
   // Loading state
@@ -836,6 +852,11 @@ export default function AdminPage() {
                         <span className="text-zinc-500 text-sm ml-2">
                           @{post.author_handle}
                         </span>
+                        {post.posted_at && (
+                          <span className="text-zinc-600 text-sm ml-2">
+                            · {formatRelativeTime(post.posted_at)}
+                          </span>
+                        )}
                         {post.detected_title && (
                           <span className="ml-2 bg-zinc-800 text-zinc-300 text-xs px-2 py-1 rounded">
                             {post.detected_title}
@@ -843,7 +864,7 @@ export default function AdminPage() {
                         )}
                       </div>
                       <span className="text-zinc-600 text-xs">
-                        {Math.round(post.relevance_score * 100)}% relevant
+                        {Math.round(post.relevance_score * 100)}%
                       </span>
                     </div>
 

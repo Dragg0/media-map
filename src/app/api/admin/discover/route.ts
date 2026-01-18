@@ -61,6 +61,16 @@ interface BlueskyPost {
   indexedAt: string;
 }
 
+interface DiscoveredPostData {
+  uri: string;
+  url: string;
+  handle: string;
+  displayName: string;
+  content: string;
+  searchPhrase: string;
+  postedAt: string;
+}
+
 // GET: Fetch pending discovered posts
 export async function GET() {
   if (!(await verifyAdmin())) {
@@ -99,17 +109,11 @@ export async function POST() {
       password: process.env.BLUESKY_APP_PASSWORD!,
     });
 
-    const discoveredPosts: Array<{
-      uri: string;
-      url: string;
-      handle: string;
-      displayName: string;
-      content: string;
-      searchPhrase: string;
-    }> = [];
+    const discoveredPosts: DiscoveredPostData[] = [];
+    const seenUris = new Set<string>();
 
     // Search for each phrase
-    for (const phrase of SEARCH_PHRASES.slice(0, 5)) { // Limit to 5 phrases per run
+    for (const phrase of SEARCH_PHRASES.slice(0, 5)) {
       try {
         const searchResult = await agent.app.bsky.feed.searchPosts({
           q: phrase,
@@ -120,8 +124,10 @@ export async function POST() {
           const postData = post as unknown as BlueskyPost;
           const text = postData.record?.text || '';
 
-          // Skip if too short or doesn't actually contain movie/TV context
+          // Skip duplicates, too short, or missing text
+          if (seenUris.has(postData.uri)) continue;
           if (text.length < 30) continue;
+          seenUris.add(postData.uri);
 
           // Convert URI to URL
           const uriParts = postData.uri.split('/');
@@ -135,6 +141,7 @@ export async function POST() {
             displayName: postData.author.displayName || postData.author.handle,
             content: text,
             searchPhrase: phrase,
+            postedAt: postData.indexedAt || postData.record?.createdAt || new Date().toISOString(),
           });
         }
       } catch (searchError) {
@@ -146,51 +153,70 @@ export async function POST() {
       return NextResponse.json({ message: "No posts found", processed: 0 });
     }
 
-    // Use AI to filter and score posts
+    // Use AI to filter and score posts - BATCHED for speed
     const anthropic = new Anthropic();
     const scoredPosts: Array<{
-      post: typeof discoveredPosts[0];
+      post: DiscoveredPostData;
       score: number;
       detectedTitle: string | null;
     }> = [];
 
-    for (const post of discoveredPosts) {
+    // Batch posts into groups of 10 for efficient AI processing
+    const batchSize = 10;
+    for (let i = 0; i < discoveredPosts.length; i += batchSize) {
+      const batch = discoveredPosts.slice(i, i + batchSize);
+
+      const postsForAnalysis = batch.map((p, idx) => `[${idx}] "${p.content}"`).join('\n\n');
+
       try {
         const response = await anthropic.messages.create({
           model: "claude-sonnet-4-20250514",
-          max_tokens: 200,
+          max_tokens: 1500,
           messages: [{
             role: "user",
-            content: `Analyze this social media post. Is it describing the VIEWING EXPERIENCE of a specific movie or TV show (how it felt to watch, emotional impact, comparisons to other media)?
+            content: `Analyze these social media posts. For each, determine if it's describing the VIEWING EXPERIENCE of a specific movie or TV show.
 
-Post: "${post.content}"
+STRICT CRITERIA - only mark relevant if the post:
+- Describes how watching a specific movie/TV show FELT (emotional impact, mood, atmosphere)
+- Makes comparisons to other viewing experiences
+- Is clearly about film/TV content (not video games, music, books, or real life)
 
-Respond in JSON format:
-{
-  "isRelevant": true/false,
-  "score": 0-100 (how well it describes the viewing experience),
-  "detectedTitle": "Movie or Show Name" or null if unclear
-}
+NOT relevant:
+- General commentary without describing the viewing experience
+- Posts about video games, anime that isn't being watched, music, etc.
+- Conversations or replies without context
+- Posts just mentioning a title without describing how it felt
 
-Only mark isRelevant:true if the post is genuinely describing what it's like to watch something, not just mentioning a title.`
+Posts:
+${postsForAnalysis}
+
+Respond with a JSON array:
+[
+  {"index": 0, "relevant": true/false, "score": 0-100, "title": "Movie/Show Name" or null},
+  ...
+]
+
+Be strict - when in doubt, mark as not relevant.`
           }]
         });
 
         const text = response.content[0].type === 'text' ? response.content[0].text : '';
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        const jsonMatch = text.match(/\[[\s\S]*\]/);
 
         if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          if (parsed.isRelevant && parsed.score >= 50) {
-            scoredPosts.push({
-              post,
-              score: parsed.score,
-              detectedTitle: parsed.detectedTitle,
-            });
+          const results = JSON.parse(jsonMatch[0]);
+          for (const result of results) {
+            if (result.relevant && result.score >= 60) {
+              scoredPosts.push({
+                post: batch[result.index],
+                score: result.score,
+                detectedTitle: result.title,
+              });
+            }
           }
         }
       } catch (aiError) {
-        console.error("AI scoring failed for post:", aiError);
+        console.error("AI batch scoring failed:", aiError);
       }
     }
 
@@ -210,6 +236,7 @@ Only mark isRelevant:true if the post is genuinely describing what it's like to 
           relevance_score: score / 100,
           search_phrase: post.searchPhrase,
           status: "pending",
+          posted_at: post.postedAt,
         }, {
           onConflict: "post_uri",
           ignoreDuplicates: true,
