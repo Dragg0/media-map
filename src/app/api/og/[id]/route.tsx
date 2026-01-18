@@ -72,7 +72,7 @@ export async function GET(
           <div
             style={{
               width: 1200,
-              height: 630,
+              height: 1200,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -84,7 +84,7 @@ export async function GET(
             Card not found
           </div>
         ),
-        { width: 1200, height: 630 }
+        { width: 1200, height: 1200 }
       );
     }
 
@@ -104,56 +104,58 @@ export async function GET(
         <div
           style={{
             width: 1200,
-            height: 630,
+            height: 1200,
             display: "flex",
             backgroundColor: "#0a0a0a",
             color: "white",
-            padding: 48,
-            gap: 36,
+            padding: 60,
+            gap: 50,
           }}
         >
           {/* Poster */}
           <div
             style={{
-              width: 280,
-              height: 534,
-              borderRadius: 16,
+              width: 380,
+              height: 570,
+              borderRadius: 20,
               overflow: "hidden",
               backgroundColor: "#222",
               flexShrink: 0,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              marginTop: 40,
             }}
           >
             {posterDataUrl ? (
               <img
                 src={posterDataUrl}
-                width={280}
-                height={534}
+                width={380}
+                height={570}
                 style={{ objectFit: "cover" }}
               />
             ) : (
-              <div style={{ color: "#666", fontSize: 20 }}>No Poster</div>
+              <div style={{ color: "#666", fontSize: 24 }}>No Poster</div>
             )}
           </div>
 
           {/* Content */}
           <div
             style={{
-              width: 788,
-              height: 534,
+              flex: 1,
+              height: 1080,
               display: "flex",
               flexDirection: "column",
+              justifyContent: "center",
             }}
           >
             {/* Branding */}
             <div
               style={{
-                fontSize: 16,
-                letterSpacing: 4,
+                fontSize: 20,
+                letterSpacing: 6,
                 color: "#666",
-                marginBottom: 16,
+                marginBottom: 24,
               }}
             >
               TEXTURE
@@ -162,9 +164,10 @@ export async function GET(
             {/* Title */}
             <div
               style={{
-                fontSize: card.title.length > 25 ? 44 : 56,
+                fontSize: card.title.length > 20 ? 56 : 72,
                 fontWeight: 700,
-                marginBottom: 8,
+                marginBottom: 12,
+                lineHeight: 1.1,
               }}
             >
               {card.title}
@@ -173,9 +176,9 @@ export async function GET(
             {/* Meta */}
             <div
               style={{
-                fontSize: 20,
+                fontSize: 26,
                 color: "#888",
-                marginBottom: 40,
+                marginBottom: 60,
               }}
             >
               {metaLine}
@@ -184,13 +187,14 @@ export async function GET(
             {/* Calibration Sentence */}
             <div
               style={{
-                fontSize: 24,
+                fontSize: 32,
                 fontStyle: "italic",
                 color: "#e0e0e0",
-                borderLeft: "4px solid #8b5cf6",
-                paddingLeft: 20,
-                paddingTop: 4,
-                paddingBottom: 4,
+                borderLeft: "5px solid #8b5cf6",
+                paddingLeft: 28,
+                paddingTop: 8,
+                paddingBottom: 8,
+                lineHeight: 1.4,
               }}
             >
               {calibrationSentence}
@@ -200,7 +204,7 @@ export async function GET(
             <div style={{ flexGrow: 1 }}></div>
 
             {/* Tagline */}
-            <div style={{ fontSize: 16, color: "#555" }}>
+            <div style={{ fontSize: 22, color: "#555" }}>
               texture.watch
             </div>
           </div>
@@ -208,7 +212,7 @@ export async function GET(
       ),
       {
         width: 1200,
-        height: 630,
+        height: 1200,
         headers: {
           'Cache-Control': 'public, max-age=3600, s-maxage=3600',
         },
@@ -220,7 +224,7 @@ export async function GET(
         <div
           style={{
             width: 1200,
-            height: 630,
+            height: 1200,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -233,7 +237,7 @@ export async function GET(
           OG ERROR: {err instanceof Error ? err.message : String(err)}
         </div>
       ),
-      { width: 1200, height: 630 }
+      { width: 1200, height: 1200 }
     );
   }
 }
