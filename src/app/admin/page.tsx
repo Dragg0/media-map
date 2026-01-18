@@ -166,21 +166,29 @@ export default function AdminPage() {
     }
   };
 
-  const handleDiscoveredPostAction = async (postId: string, status: "liked" | "quoted" | "dismissed") => {
+  const handleDiscoveredPostAction = async (postId: string, status: "liked" | "quoted" | "dismissed" | "done") => {
     try {
       const res = await fetch("/api/admin/discover", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: postId, status }),
+        body: JSON.stringify({ id: postId, status: status === "done" ? "quoted" : status }),
       });
 
       if (res.ok) {
-        setDiscoveredPosts(posts => posts.filter(p => p.id !== postId));
-        setQuoteSuggestions(prev => {
-          const next = { ...prev };
-          delete next[postId];
-          return next;
-        });
+        // Only remove from view if dismissing or marking done
+        if (status === "dismissed" || status === "done") {
+          setDiscoveredPosts(posts => posts.filter(p => p.id !== postId));
+          setQuoteSuggestions(prev => {
+            const next = { ...prev };
+            delete next[postId];
+            return next;
+          });
+        } else {
+          // Update local state to show it's been acted on
+          setDiscoveredPosts(posts => posts.map(p =>
+            p.id === postId ? { ...p, status } : p
+          ));
+        }
       }
     } catch (error) {
       console.error("Failed to update post:", error);
@@ -948,21 +956,35 @@ export default function AdminPage() {
                       </button>
                       <button
                         onClick={() => handleDiscoveredPostAction(post.id, "liked")}
-                        className="bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-lg text-sm transition-colors"
+                        className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                          post.status === "liked"
+                            ? "bg-green-600 text-white"
+                            : "bg-zinc-800 hover:bg-zinc-700 text-white"
+                        }`}
                       >
-                        Liked
+                        {post.status === "liked" ? "✓ Liked" : "Liked"}
                       </button>
                       <button
                         onClick={() => handleDiscoveredPostAction(post.id, "quoted")}
-                        className="bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-1.5 rounded-lg text-sm transition-colors"
+                        className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                          post.status === "quoted"
+                            ? "bg-green-600 text-white"
+                            : "bg-zinc-800 hover:bg-zinc-700 text-white"
+                        }`}
                       >
-                        Quoted
+                        {post.status === "quoted" ? "✓ Quoted" : "Quoted"}
+                      </button>
+                      <button
+                        onClick={() => handleDiscoveredPostAction(post.id, "done")}
+                        className="bg-green-700 hover:bg-green-600 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        Done
                       </button>
                       <button
                         onClick={() => handleDiscoveredPostAction(post.id, "dismissed")}
                         className="bg-zinc-800 hover:bg-zinc-700 text-zinc-400 px-3 py-1.5 rounded-lg text-sm transition-colors"
                       >
-                        Dismiss
+                        Skip
                       </button>
                     </div>
                   </div>
