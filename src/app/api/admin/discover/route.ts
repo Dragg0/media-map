@@ -30,21 +30,47 @@ async function verifyAdmin(): Promise<boolean> {
 
 // Search phrases that indicate someone is describing the viewing experience
 const SEARCH_PHRASES = [
+  // "Felt like" patterns
   "felt like watching",
   "feels like watching",
-  "felt like a",
+  "felt like a movie",
+  "felt like a show",
+  // Comparison patterns
   "hits like",
   "vibes like",
   "same energy as",
   "gave me vibes",
   "reminded me of",
+  // Emotional impact - direct
+  "wrecked me",
+  "destroyed me",
+  "gutted me",
+  "broke me",
+  "ruined me",
+  "devastated me",
+  "made me cry",
   "left me feeling",
   "wasn't ready for",
   "can't stop thinking about",
-  "this movie made me",
-  "this show made me",
+  // Action + content
+  "just finished watching",
+  "finally watched",
+  "just watched",
+  "rewatching",
+  // Content type + emotion
+  "movie wrecked",
+  "movie destroyed",
+  "documentary emotional",
+  "documentary devastating",
+  "show made me",
+  "movie made me",
+  "film made me",
+  // Viewing descriptors
   "comfort watch",
-  "devastated by",
+  "stressful watch",
+  "emotional rollercoaster",
+  "gut punch",
+  "slow burn",
 ];
 
 interface BlueskyPost {
@@ -112,8 +138,12 @@ export async function POST() {
     const discoveredPosts: DiscoveredPostData[] = [];
     const seenUris = new Set<string>();
 
+    // Randomly select phrases to search (variety each run)
+    const shuffled = [...SEARCH_PHRASES].sort(() => Math.random() - 0.5);
+    const phrasesToSearch = shuffled.slice(0, 8);
+
     // Search for each phrase
-    for (const phrase of SEARCH_PHRASES.slice(0, 5)) {
+    for (const phrase of phrasesToSearch) {
       try {
         const searchResult = await agent.app.bsky.feed.searchPosts({
           q: phrase,
