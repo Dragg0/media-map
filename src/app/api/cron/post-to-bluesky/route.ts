@@ -5,6 +5,9 @@ import { createClient } from "@supabase/supabase-js";
 // Slot types for different times of day
 type PostSlot = "morning" | "afternoon" | "evening";
 
+// Image format types for A/B testing
+type ImageFormat = "card" | "poster";
+
 // Prestige genres for evening slot
 const PRESTIGE_GENRES = [
   "Drama",
@@ -28,21 +31,46 @@ function getSupabase() {
 async function fetchOgImageBuffer(slug: string): Promise<Buffer | null> {
   try {
     const ogImageUrl = `https://texture.watch/api/og/${slug}`;
-    console.log(`Fetching OG image: ${ogImageUrl}`);
+    console.log(`[Bluesky] Fetching OG image: ${ogImageUrl}`);
 
     const response = await fetch(ogImageUrl, { cache: "no-store" });
 
     if (!response.ok) {
-      console.error(`OG image fetch failed: ${response.status}`);
+      console.error(`[Bluesky] OG image fetch failed: ${response.status}`);
       return null;
     }
 
     const arrayBuffer = await response.arrayBuffer();
     return Buffer.from(arrayBuffer);
   } catch (error) {
-    console.error("Failed to fetch OG image:", error);
+    console.error("[Bluesky] Failed to fetch OG image:", error);
     return null;
   }
+}
+
+// Fetch poster image directly from TMDB URL
+async function fetchPosterImageBuffer(posterUrl: string): Promise<Buffer | null> {
+  try {
+    console.log(`[Bluesky] Fetching poster: ${posterUrl}`);
+
+    const response = await fetch(posterUrl, { cache: "no-store" });
+
+    if (!response.ok) {
+      console.error(`[Bluesky] Poster fetch failed: ${response.status}`);
+      return null;
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  } catch (error) {
+    console.error("[Bluesky] Failed to fetch poster:", error);
+    return null;
+  }
+}
+
+// Randomly select image format (50/50 split)
+function selectImageFormat(): ImageFormat {
+  return Math.random() < 0.5 ? "card" : "poster";
 }
 
 // Verify this is a legitimate cron request
@@ -207,17 +235,30 @@ export async function GET(request: Request) {
     const rt = new RichText({ text: postText });
     await rt.detectFacets(agent);
 
-    // Try to fetch and upload image
+    // Randomly select image format for A/B testing
+    const imageFormat = selectImageFormat();
+    console.log(`[Bluesky] Selected image format: ${imageFormat}`);
+
+    // Fetch image based on format
     let embed: { $type: string; images: Array<{ alt: string; image: unknown }> } | undefined;
-    const imageBuffer = await fetchOgImageBuffer(selectedCard.slug);
+    let imageBuffer: Buffer | null = null;
+    let encoding: string = "image/png";
+
+    if (imageFormat === "card") {
+      imageBuffer = await fetchOgImageBuffer(selectedCard.slug);
+      encoding = "image/png";
+    } else if (imageFormat === "poster" && selectedCard.poster_url) {
+      imageBuffer = await fetchPosterImageBuffer(selectedCard.poster_url);
+      encoding = "image/jpeg";
+    }
 
     if (imageBuffer) {
       try {
         console.log(
-          `[Bluesky] Uploading image (${imageBuffer.length} bytes)`
+          `[Bluesky] Uploading ${imageFormat} image (${imageBuffer.length} bytes)`
         );
         const uploadResponse = await agent.uploadBlob(imageBuffer, {
-          encoding: "image/png",
+          encoding,
         });
         console.log("[Bluesky] Image uploaded successfully");
 
@@ -247,7 +288,7 @@ export async function GET(request: Request) {
     const postUri = postResponse.uri;
     const postId = postUri.split("/").pop();
     console.log(
-      `[Bluesky] Posted "${selectedCard.title}": ${postId}${embed ? " (with image)" : " (text only)"}`
+      `[Bluesky] Posted "${selectedCard.title}": ${postId} (format: ${imageFormat}, image: ${embed ? "yes" : "no"})`
     );
 
     // Update last_posted_bluesky on the card
@@ -263,6 +304,7 @@ export async function GET(request: Request) {
       tweet_id: postId, // Using tweet_id field for post ID
       platform: "bluesky",
       posted_at: new Date().toISOString(),
+      image_format: imageFormat, // Track which format was used for A/B analysis
       title: selectedCard.title,
       slug: selectedCard.slug,
       calibration_sentence: selectedCard.calibration_sentence,
@@ -302,6 +344,7 @@ export async function GET(request: Request) {
       slot,
       title: selectedCard.title,
       postUri,
+      imageFormat,
       imageAttached: !!embed,
     });
   } catch (error) {

@@ -5,6 +5,9 @@ import { createClient } from "@supabase/supabase-js";
 // Slot types for different times of day
 type PostSlot = "morning" | "afternoon" | "evening";
 
+// Image format types for A/B testing
+type ImageFormat = "card" | "poster";
+
 // Prestige genres for evening slot
 const PRESTIGE_GENRES = [
   "Drama",
@@ -43,6 +46,31 @@ async function fetchOgImageBuffer(slug: string): Promise<Buffer | null> {
     console.error("Failed to fetch OG image:", error);
     return null;
   }
+}
+
+// Fetch poster image directly from TMDB URL
+async function fetchPosterImageBuffer(posterUrl: string): Promise<Buffer | null> {
+  try {
+    console.log(`Fetching poster: ${posterUrl}`);
+
+    const response = await fetch(posterUrl, { cache: "no-store" });
+
+    if (!response.ok) {
+      console.error(`Poster fetch failed: ${response.status}`);
+      return null;
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  } catch (error) {
+    console.error("Failed to fetch poster:", error);
+    return null;
+  }
+}
+
+// Randomly select image format (50/50 split)
+function selectImageFormat(): ImageFormat {
+  return Math.random() < 0.5 ? "card" : "poster";
 }
 
 // Verify this is a legitimate cron request
@@ -226,15 +254,28 @@ export async function GET(request: Request) {
     const cardUrl = `https://texture.watch/card/${selectedCard.slug}`;
     const tweetText = `${selectedCard.calibration_sentence}\n\n${cardUrl}\n\n#NowWatching`;
 
-    // Try to fetch and upload OG image
+    // Randomly select image format for A/B testing
+    const imageFormat = selectImageFormat();
+    console.log(`Selected image format: ${imageFormat}`);
+
+    // Fetch image based on format
     let mediaId: string | null = null;
-    const imageBuffer = await fetchOgImageBuffer(selectedCard.slug);
+    let imageBuffer: Buffer | null = null;
+    let mimeType: string = "image/png";
+
+    if (imageFormat === "card") {
+      imageBuffer = await fetchOgImageBuffer(selectedCard.slug);
+      mimeType = "image/png";
+    } else if (imageFormat === "poster" && selectedCard.poster_url) {
+      imageBuffer = await fetchPosterImageBuffer(selectedCard.poster_url);
+      mimeType = "image/jpeg";
+    }
 
     if (imageBuffer) {
       try {
-        console.log(`Uploading image to Twitter (${imageBuffer.length} bytes)`);
+        console.log(`Uploading ${imageFormat} image to Twitter (${imageBuffer.length} bytes)`);
         mediaId = await twitterClient.v1.uploadMedia(imageBuffer, {
-          mimeType: "image/png",
+          mimeType,
         });
         console.log(`Image uploaded successfully: ${mediaId}`);
       } catch (uploadError) {
@@ -251,7 +292,7 @@ export async function GET(request: Request) {
       : await twitterClient.v2.tweet(tweetText);
 
     console.log(
-      `Posted tweet for "${selectedCard.title}": ${tweet.data.id}${mediaId ? " (with image)" : " (URL-only fallback)"}`
+      `Posted tweet for "${selectedCard.title}": ${tweet.data.id} (format: ${imageFormat}, image: ${mediaId ? "yes" : "no"})`
     );
 
     // Update last_posted_at on the card
@@ -266,6 +307,7 @@ export async function GET(request: Request) {
       slot,
       tweet_id: tweet.data.id,
       posted_at: new Date().toISOString(),
+      image_format: imageFormat, // Track which format was used for A/B analysis
       // Snapshot fields - capture what was actually posted
       title: selectedCard.title,
       slug: selectedCard.slug,
@@ -310,6 +352,7 @@ export async function GET(request: Request) {
       slot,
       title: selectedCard.title,
       tweetId: tweet.data.id,
+      imageFormat,
       imageAttached: !!mediaId,
       nextPreviewTriggered: nextSlot,
     });
