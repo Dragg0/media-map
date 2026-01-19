@@ -73,6 +73,42 @@ async function getTmdbPopularity(tmdbId: number, mediaType: string): Promise<num
   }
 }
 
+// Get the next slot in the rotation
+function getNextSlot(currentSlot: PostSlot): PostSlot {
+  switch (currentSlot) {
+    case "morning":
+      return "afternoon";
+    case "afternoon":
+      return "evening";
+    case "evening":
+      return "morning"; // Next day's morning
+  }
+}
+
+// Trigger preview preparation for the next slot
+async function triggerNextPreview(nextSlot: PostSlot): Promise<void> {
+  try {
+    console.log(`Triggering preview for next slot: ${nextSlot}`);
+    const response = await fetch(
+      `https://texture.watch/api/cron/prepare-post?slot=${nextSlot}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${process.env.CRON_SECRET}`,
+        },
+      }
+    );
+    if (response.ok) {
+      console.log(`Preview triggered successfully for ${nextSlot}`);
+    } else {
+      console.error(`Failed to trigger preview: ${response.status}`);
+    }
+  } catch (error) {
+    console.error("Error triggering next preview:", error);
+    // Don't fail the main request if preview trigger fails
+  }
+}
+
 export async function GET(request: Request) {
   // Verify the request is from Vercel Cron or has the secret
   if (!verifyCronRequest(request)) {
@@ -265,12 +301,17 @@ export async function GET(request: Request) {
       }
     }
 
+    // Trigger preview for the next slot (Twitter is primary, triggers previews)
+    const nextSlot = getNextSlot(slot);
+    await triggerNextPreview(nextSlot);
+
     return NextResponse.json({
       success: true,
       slot,
       title: selectedCard.title,
       tweetId: tweet.data.id,
       imageAttached: !!mediaId,
+      nextPreviewTriggered: nextSlot,
     });
   } catch (error) {
     console.error("Failed to post to X:", error);
