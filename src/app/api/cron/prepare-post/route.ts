@@ -85,6 +85,31 @@ export async function GET(request: Request) {
     const slot = (url.searchParams.get("slot") as PostSlot) || "afternoon";
     console.log(`[Prepare] Preparing ${slot} post preview`);
 
+    // Check if a pending post already exists for this slot today
+    const checkScheduledFor = getScheduledTime(slot);
+    const dayStart = new Date(checkScheduledFor);
+    dayStart.setUTCHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setDate(dayEnd.getDate() + 1);
+
+    const { data: existingPost } = await supabase
+      .from("pending_posts")
+      .select("id, status")
+      .eq("slot", slot)
+      .gte("scheduled_for", dayStart.toISOString())
+      .lt("scheduled_for", dayEnd.toISOString())
+      .in("status", ["pending", "approved"])
+      .single();
+
+    if (existingPost) {
+      console.log(`[Prepare] Pending post already exists for ${slot} slot, skipping`);
+      return NextResponse.json({
+        message: "Pending post already exists for this slot",
+        existingPostId: existingPost.id,
+        status: existingPost.status,
+      });
+    }
+
     // Get cards eligible for posting (haven't been posted in 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
