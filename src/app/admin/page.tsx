@@ -33,7 +33,9 @@ interface DiscoveredPost {
   content: string;
   detected_title: string | null;
   relevance_score: number;
-  status: "pending" | "liked" | "quoted" | "dismissed";
+  status: "pending" | "dismissed";
+  is_liked: boolean;
+  is_quoted: boolean;
   search_phrase: string | null;
   discovered_at: string;
   posted_at: string | null;
@@ -166,27 +168,34 @@ export default function AdminPage() {
     }
   };
 
-  const handleDiscoveredPostAction = async (postId: string, status: "liked" | "quoted" | "dismissed" | "done") => {
+  const handleDiscoveredPostAction = async (postId: string, action: "toggle_liked" | "toggle_quoted" | "dismissed" | "done") => {
     try {
+      const body = action === "toggle_liked" || action === "toggle_quoted"
+        ? { id: postId, action }
+        : { id: postId, status: action === "done" ? "dismissed" : action };
+
       const res = await fetch("/api/admin/discover", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: postId, status: status === "done" ? "quoted" : status }),
+        body: JSON.stringify(body),
       });
 
       if (res.ok) {
-        // Only remove from view if dismissing or marking done
-        if (status === "dismissed" || status === "done") {
+        const data = await res.json();
+
+        // Remove from view if dismissing or marking done
+        if (action === "dismissed" || action === "done") {
           setDiscoveredPosts(posts => posts.filter(p => p.id !== postId));
           setQuoteSuggestions(prev => {
             const next = { ...prev };
             delete next[postId];
             return next;
           });
-        } else {
-          // Update local state to show it's been acted on
+        } else if (action === "toggle_liked" || action === "toggle_quoted") {
+          // Update the toggle state locally
+          const field = action === "toggle_liked" ? "is_liked" : "is_quoted";
           setDiscoveredPosts(posts => posts.map(p =>
-            p.id === postId ? { ...p, status } : p
+            p.id === postId ? { ...p, [field]: data[field] } : p
           ));
         }
       }
@@ -955,24 +964,24 @@ export default function AdminPage() {
                         {generatingQuote === post.id ? "..." : "Suggest Quote"}
                       </button>
                       <button
-                        onClick={() => handleDiscoveredPostAction(post.id, "liked")}
+                        onClick={() => handleDiscoveredPostAction(post.id, "toggle_liked")}
                         className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                          post.status === "liked"
+                          post.is_liked
                             ? "bg-green-600 text-white"
                             : "bg-zinc-800 hover:bg-zinc-700 text-white"
                         }`}
                       >
-                        {post.status === "liked" ? "✓ Liked" : "Liked"}
+                        {post.is_liked ? "✓ Liked" : "Liked"}
                       </button>
                       <button
-                        onClick={() => handleDiscoveredPostAction(post.id, "quoted")}
+                        onClick={() => handleDiscoveredPostAction(post.id, "toggle_quoted")}
                         className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-                          post.status === "quoted"
+                          post.is_quoted
                             ? "bg-green-600 text-white"
                             : "bg-zinc-800 hover:bg-zinc-700 text-white"
                         }`}
                       >
-                        {post.status === "quoted" ? "✓ Quoted" : "Quoted"}
+                        {post.is_quoted ? "✓ Quoted" : "Quoted"}
                       </button>
                       <button
                         onClick={() => handleDiscoveredPostAction(post.id, "done")}

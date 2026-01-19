@@ -330,14 +330,48 @@ Respond with just the 3 options, one per line, no numbering.`
     return NextResponse.json({ suggestions });
   }
 
-  // Update status
-  const { id, status } = body;
+  const supabase = getSupabase();
+  const { id } = body;
 
-  if (!id || !status) {
-    return NextResponse.json({ error: "Missing id or status" }, { status: 400 });
+  if (!id) {
+    return NextResponse.json({ error: "Missing id" }, { status: 400 });
   }
 
-  const supabase = getSupabase();
+  // Toggle liked/quoted independently
+  if (body.action === "toggle_liked" || body.action === "toggle_quoted") {
+    const field = body.action === "toggle_liked" ? "is_liked" : "is_quoted";
+
+    // Get current value
+    const { data: current } = await supabase
+      .from("discovered_posts")
+      .select("is_liked, is_quoted")
+      .eq("id", id)
+      .single();
+
+    const currentValue = field === "is_liked" ? current?.is_liked : current?.is_quoted;
+    const newValue = !currentValue;
+
+    const { error } = await supabase
+      .from("discovered_posts")
+      .update({
+        [field]: newValue,
+        acted_on_at: new Date().toISOString(),
+      })
+      .eq("id", id);
+
+    if (error) {
+      return NextResponse.json({ error: "Failed to update" }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, [field]: newValue });
+  }
+
+  // Update status (for dismiss/done)
+  const { status } = body;
+
+  if (!status) {
+    return NextResponse.json({ error: "Missing status" }, { status: 400 });
+  }
 
   const { error } = await supabase
     .from("discovered_posts")
