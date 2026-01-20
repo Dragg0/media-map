@@ -24,6 +24,12 @@ async function fetchAsDataURL(url: string): Promise<string | null> {
   }
 }
 
+// Get base URL for fetching assets
+function getBaseUrl(request: Request): string {
+  const url = new URL(request.url);
+  return `${url.protocol}//${url.host}`;
+}
+
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
@@ -92,6 +98,10 @@ export async function GET(
     const posterUrl = card.poster_url?.startsWith("http") ? card.poster_url : null;
     const posterDataUrl = posterUrl ? await fetchAsDataURL(posterUrl) : null;
 
+    // Fetch logo
+    const baseUrl = getBaseUrl(request);
+    const logoDataUrl = await fetchAsDataURL(`${baseUrl}/logo/gradient.png`);
+
     const genreDisplay = card.genres?.[0] || "";
     const typeDisplay = card.media_type === "tv" ? "TV Series" : "Film";
     const metaLine = [card.year, typeDisplay, genreDisplay].filter(Boolean).join(" · ");
@@ -106,107 +116,132 @@ export async function GET(
             width: 1200,
             height: 1200,
             display: "flex",
+            flexDirection: "column",
             backgroundColor: "#0a0a0a",
             color: "white",
             padding: 60,
-            gap: 50,
           }}
         >
-          {/* Poster */}
+          {/* Main content row */}
           <div
             style={{
-              width: 380,
-              height: 570,
-              borderRadius: 20,
-              overflow: "hidden",
-              backgroundColor: "#222",
-              flexShrink: 0,
               display: "flex",
+              flex: 1,
+              gap: 50,
               alignItems: "center",
-              justifyContent: "center",
-              marginTop: 40,
             }}
           >
-            {posterDataUrl ? (
-              <img
-                src={posterDataUrl}
-                width={380}
-                height={570}
-                style={{ objectFit: "cover" }}
-              />
-            ) : (
-              <div style={{ color: "#666", fontSize: 24 }}>No Poster</div>
-            )}
+            {/* Poster */}
+            <div
+              style={{
+                width: 380,
+                height: 570,
+                borderRadius: 20,
+                overflow: "hidden",
+                backgroundColor: "#222",
+                flexShrink: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {posterDataUrl ? (
+                <img
+                  src={posterDataUrl}
+                  width={380}
+                  height={570}
+                  style={{ objectFit: "cover" }}
+                />
+              ) : (
+                <div style={{ color: "#666", fontSize: 24 }}>No Poster</div>
+              )}
+            </div>
+
+            {/* Content */}
+            <div
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+              }}
+            >
+              {/* Branding */}
+              <div
+                style={{
+                  fontSize: 20,
+                  letterSpacing: 6,
+                  color: "#666",
+                  marginBottom: 24,
+                }}
+              >
+                TEXTURE
+              </div>
+
+              {/* Title */}
+              <div
+                style={{
+                  fontSize: card.title.length > 20 ? 56 : 72,
+                  fontWeight: 700,
+                  marginBottom: 12,
+                  lineHeight: 1.1,
+                }}
+              >
+                {card.title}
+              </div>
+
+              {/* Meta */}
+              <div
+                style={{
+                  fontSize: 26,
+                  color: "#888",
+                  marginBottom: 48,
+                }}
+              >
+                {metaLine}
+              </div>
+
+              {/* Calibration Sentence */}
+              <div
+                style={{
+                  fontSize: 32,
+                  fontStyle: "italic",
+                  color: "#e0e0e0",
+                  borderLeft: "5px solid #8b5cf6",
+                  paddingLeft: 28,
+                  paddingTop: 8,
+                  paddingBottom: 8,
+                  lineHeight: 1.4,
+                }}
+              >
+                {calibrationSentence}
+              </div>
+            </div>
           </div>
 
-          {/* Content */}
+          {/* Footer with logo and URL */}
           <div
             style={{
-              flex: 1,
-              height: 1080,
               display: "flex",
-              flexDirection: "column",
-              justifyContent: "center",
+              justifyContent: "space-between",
+              alignItems: "center",
+              paddingTop: 30,
             }}
           >
-            {/* Branding */}
-            <div
-              style={{
-                fontSize: 20,
-                letterSpacing: 6,
-                color: "#666",
-                marginBottom: 24,
-              }}
-            >
-              TEXTURE
-            </div>
-
-            {/* Title */}
-            <div
-              style={{
-                fontSize: card.title.length > 20 ? 56 : 72,
-                fontWeight: 700,
-                marginBottom: 12,
-                lineHeight: 1.1,
-              }}
-            >
-              {card.title}
-            </div>
-
-            {/* Meta */}
-            <div
-              style={{
-                fontSize: 26,
-                color: "#888",
-                marginBottom: 60,
-              }}
-            >
-              {metaLine}
-            </div>
-
-            {/* Calibration Sentence */}
-            <div
-              style={{
-                fontSize: 32,
-                fontStyle: "italic",
-                color: "#e0e0e0",
-                borderLeft: "5px solid #8b5cf6",
-                paddingLeft: 28,
-                paddingTop: 8,
-                paddingBottom: 8,
-                lineHeight: 1.4,
-              }}
-            >
-              {calibrationSentence}
-            </div>
-
-            {/* Spacer */}
-            <div style={{ flexGrow: 1 }}></div>
-
-            {/* Tagline */}
-            <div style={{ fontSize: 22, color: "#555" }}>
+            {/* URL on left */}
+            <div style={{ fontSize: 28, color: "#666" }}>
               texture.watch
             </div>
+
+            {/* Logo on right */}
+            {logoDataUrl && (
+              <img
+                src={logoDataUrl}
+                width={90}
+                height={90}
+                style={{ opacity: 0.85 }}
+              />
+            )}
           </div>
         </div>
       ),
