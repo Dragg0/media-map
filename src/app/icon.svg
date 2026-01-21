@@ -1,10 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Dark background circle -->
-  <circle cx="256" cy="256" r="256" fill="#18181b"/>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" width="512" height="512" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 512 512">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #fff;
+      }
 
-  <!-- Outer ring -->
-  <circle cx="256" cy="256" r="180" fill="none" stroke="#fff" stroke-width="32"/>
-
-  <!-- Play triangle - slightly offset right for optical centering -->
-  <polygon points="215,156 215,356 365,256" fill="#fff"/>
+      .cls-2 {
+        fill: url(#linear-gradient);
+      }
+    </style>
+    <linearGradient id="linear-gradient" x1="14.45" y1="256.17" x2="503.16" y2="256.17" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6a6691"/>
+      <stop offset=".5" stop-color="#ee8643"/>
+      <stop offset="1" stop-color="#992f33"/>
+    </linearGradient>
+  </defs>
+  <path class="cls-2" d="M22.28,357.75c2.94,10.03,21.66,70.8,55.86,105.21,28.98,29.16,111.78,88.46,254.28,10.07,64.86-35.7,114.09-78.89,142.35-124.94,26.35-42.92,34.41-86.62,23.97-129.94-24.98-103.53-155.76-172.7-210.83-197.61C214.14-12.88,108.02-14.44,51.75,91.12,9.34,170.7,8.77,249.82,22.24,357.78l.03-.03Z"/>
+  <path class="cls-1" d="M138.62,289.11l.19,3.19c2.59,41.85,6.19,99.18,33.95,106.65,21.29,5.72,101.59-31.32,187.3-95.62,22.72-17.04,34.07-32.2,33.7-45.01-.34-12.41-11.28-34.2-61.45-67.55-40.67-27.04-125.28-83.3-160.73-73.42-4.31,1.19-9.85,3.88-14.66,14-19.44,41.17-19.82,127.66-18.32,157.73l.03.03Z"/>
 </svg>
