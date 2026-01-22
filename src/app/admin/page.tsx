@@ -652,7 +652,7 @@ export default function AdminPage() {
                               disabled={saving}
                               className="w-full text-left bg-zinc-800 hover:bg-zinc-700 p-3 rounded-lg text-sm transition-colors disabled:opacity-50"
                             >
-                              {sentence}
+                              {sentence.replace(/\*/g, "")}
                             </button>
                           ))}
                         </div>
@@ -816,7 +816,7 @@ export default function AdminPage() {
                           disabled={saving}
                           className="w-full text-left bg-zinc-800 hover:bg-zinc-700 p-3 rounded-lg text-sm transition-colors disabled:opacity-50"
                         >
-                          {sentence}
+                          {sentence.replace(/\*/g, "")}
                         </button>
                       ))}
                     </div>
