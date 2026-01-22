@@ -77,7 +77,8 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Failed to generate image" }, { status: 500 });
     }
 
-    const postText = `${question}\n\nDrop your answers below 👇`;
+    // Image-only post (text in the image itself)
+    const postText = "";
     let blueskyPostId: string | null = null;
     let twitterPostId: string | null = null;
 
