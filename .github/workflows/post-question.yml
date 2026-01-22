@@ -1,0 +1,29 @@
+name: Post Engagement Question
+
+on:
+  schedule:
+    # Every 3 days at 3pm UTC (10am EST / 8am MT / 7am PST)
+    # Using day-of-month: 1,4,7,10,13,16,19,22,25,28 for ~3 day intervals
+    - cron: '0 15 1,4,7,10,13,16,19,22,25,28 * *'
+  workflow_dispatch: # Manual trigger
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post engagement question
+        run: |
+          response=$(curl -s -w "\n%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://texture.watch/api/cron/post-question")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "Request failed with status $http_code"
+            exit 1
+          fi
