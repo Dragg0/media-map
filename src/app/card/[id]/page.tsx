@@ -70,6 +70,14 @@ export default async function CardPage({ params }: PageProps) {
       <div className="mx-auto max-w-2xl px-6 py-16">
         <header className="mb-12 text-center">
           <a href="/" className="inline-block">
+            <Image
+              src="/logo/gradient.svg"
+              alt="Texture logo"
+              width={72}
+              height={72}
+              className="mx-auto mb-4"
+              priority
+            />
             <h1 className="text-5xl font-semibold tracking-wide text-zinc-900 dark:text-zinc-100">
               Texture
             </h1>

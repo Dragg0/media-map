@@ -283,6 +283,14 @@ export default function Home() {
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
       <div className="mx-auto max-w-2xl px-6 py-16">
         <header className="mb-12 text-center">
+          <Image
+            src="/logo/gradient.svg"
+            alt="Texture logo"
+            width={72}
+            height={72}
+            className="mx-auto mb-4"
+            priority
+          />
           <h1 className="text-5xl font-semibold tracking-wide text-zinc-900 dark:text-zinc-100">
             Texture
           </h1>
