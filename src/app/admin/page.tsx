@@ -625,7 +625,7 @@ export default function AdminPage() {
                           </h2>
 
                           <p className="text-zinc-400 italic mb-4">
-                            &ldquo;{selectedPost.selected_card.calibration_sentence || "No sentence"}&rdquo;
+                            &ldquo;{(selectedPost.selected_card.calibration_sentence || "No sentence").replace(/\*/g, "")}&rdquo;
                           </p>
 
                           <button
@@ -698,7 +698,7 @@ export default function AdminPage() {
                                     )}
                                   </div>
                                   <div className="text-zinc-500 text-xs truncate max-w-xs">
-                                    {card!.calibration_sentence}
+                                    {card!.calibration_sentence?.replace(/\*/g, "")}
                                   </div>
                                 </div>
                                 {card!.id === selectedPost.selected_card_id && (
@@ -790,7 +790,7 @@ export default function AdminPage() {
                     </h2>
 
                     <p className="text-zinc-400 italic mb-4">
-                      &ldquo;{selectedCard.calibration_sentence || "No sentence"}&rdquo;
+                      &ldquo;{(selectedCard.calibration_sentence || "No sentence").replace(/\*/g, "")}&rdquo;
                     </p>
 
                     <button
@@ -857,7 +857,7 @@ export default function AdminPage() {
                           )}
                         </div>
                         <div className="text-zinc-500 text-xs truncate">
-                          {card.calibration_sentence || "No sentence"}
+                          {(card.calibration_sentence || "No sentence").replace(/\*/g, "")}
                         </div>
                       </div>
                     </button>

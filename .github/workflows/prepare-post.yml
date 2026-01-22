@@ -1,0 +1,59 @@
+name: Prepare Post Preview
+
+on:
+  schedule:
+    # 1 hour before each posting time to ensure pending post exists
+    # Morning slot: 2pm UTC (1hr before 3pm post)
+    - cron: '0 14 * * *'
+    # Afternoon slot: 5pm UTC (1hr before 6pm post)
+    - cron: '0 17 * * *'
+    # Evening slot: 12am UTC (1hr before 1am post)
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      slot:
+        description: 'Which slot to prepare'
+        required: true
+        default: 'afternoon'
+        type: choice
+        options:
+          - morning
+          - afternoon
+          - evening
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine slot from schedule
+        id: slot
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "slot=${{ inputs.slot }}" >> $GITHUB_OUTPUT
+          else
+            HOUR=$(date -u +%H)
+            if [ "$HOUR" = "14" ]; then
+              echo "slot=morning" >> $GITHUB_OUTPUT
+            elif [ "$HOUR" = "17" ]; then
+              echo "slot=afternoon" >> $GITHUB_OUTPUT
+            else
+              echo "slot=evening" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Prepare post preview
+        run: |
+          response=$(curl -s -w "\n%{http_code}" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://texture.watch/api/cron/prepare-post?slot=${{ steps.slot.outputs.slot }}")
+
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          echo "Response: $body"
+          echo "HTTP Code: $http_code"
+
+          if [ "$http_code" != "200" ]; then
+            echo "Request failed with status $http_code"
+            exit 1
+          fi
