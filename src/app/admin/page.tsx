@@ -609,7 +609,7 @@ export default function AdminPage() {
                     {selectedPost.selected_card && (
                       <div className="bg-zinc-900 rounded-xl overflow-hidden">
                         <img
-                          src={`/api/og/${selectedPost.selected_card.slug}`}
+                          src={`/api/og/${selectedPost.selected_card.slug}?v=${encodeURIComponent(selectedPost.selected_card.calibration_sentence?.slice(0, 20) || "")}`}
                           alt={selectedPost.selected_card.title}
                           className="w-full"
                         />
@@ -774,7 +774,7 @@ export default function AdminPage() {
 
                 <div className="bg-zinc-900 rounded-xl overflow-hidden">
                   <img
-                    src={`/api/og/${selectedCard.slug}`}
+                    src={`/api/og/${selectedCard.slug}?v=${encodeURIComponent(selectedCard.calibration_sentence?.slice(0, 20) || "")}`}
                     alt={selectedCard.title}
                     className="w-full"
                   />
