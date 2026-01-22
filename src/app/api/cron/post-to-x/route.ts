@@ -68,9 +68,9 @@ async function fetchPosterImageBuffer(posterUrl: string): Promise<Buffer | null>
   }
 }
 
-// Randomly select image format (50/50 split)
+// Always use OG card format (A/B testing concluded)
 function selectImageFormat(): ImageFormat {
-  return Math.random() < 0.5 ? "card" : "poster";
+  return "card";
 }
 
 // Verify this is a legitimate cron request
@@ -250,9 +250,10 @@ export async function GET(request: Request) {
       accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET!,
     });
 
-    // Compose the tweet text
+    // Compose the tweet text (strip asterisks from calibration sentence)
     const cardUrl = `https://texture.watch/card/${selectedCard.slug}`;
-    const tweetText = `${selectedCard.calibration_sentence}\n\n${cardUrl}\n\n#NowWatching`;
+    const cleanSentence = selectedCard.calibration_sentence?.replace(/\*/g, "") || "";
+    const tweetText = `${cleanSentence}\n\n${cardUrl}\n\n#NowWatching`;
 
     // Randomly select image format for A/B testing
     const imageFormat = selectImageFormat();

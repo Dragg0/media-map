@@ -68,9 +68,9 @@ async function fetchPosterImageBuffer(posterUrl: string): Promise<Buffer | null>
   }
 }
 
-// Randomly select image format (50/50 split)
+// Always use OG card format (A/B testing concluded)
 function selectImageFormat(): ImageFormat {
-  return Math.random() < 0.5 ? "card" : "poster";
+  return "card";
 }
 
 // Verify this is a legitimate cron request
@@ -227,9 +227,10 @@ export async function GET(request: Request) {
       password: process.env.BLUESKY_APP_PASSWORD!,
     });
 
-    // Compose the post text
+    // Compose the post text (strip asterisks from calibration sentence)
     const cardUrl = `https://texture.watch/card/${selectedCard.slug}`;
-    const postText = `${selectedCard.calibration_sentence}\n\n${cardUrl}\n\n#NowWatching`;
+    const cleanSentence = selectedCard.calibration_sentence?.replace(/\*/g, "") || "";
+    const postText = `${cleanSentence}\n\n${cardUrl}\n\n#NowWatching`;
 
     // Create rich text with link facets
     const rt = new RichText({ text: postText });
@@ -266,7 +267,7 @@ export async function GET(request: Request) {
           $type: "app.bsky.embed.images",
           images: [
             {
-              alt: `${selectedCard.title} - ${selectedCard.calibration_sentence}`,
+              alt: `${selectedCard.title} - ${cleanSentence}`,
               image: uploadResponse.data.blob,
             },
           ],
